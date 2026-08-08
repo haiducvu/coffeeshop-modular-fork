@@ -1,0 +1,16 @@
+.DS_Store
+.idea/
+.vs/
+.vscode/
+**/bin/
+**/obj/
+TestResults/
+artifacts/
+*.user
+*.suo
+*.log
+node_modules/
+dist/
+.env
+.env.*
+!.env.example

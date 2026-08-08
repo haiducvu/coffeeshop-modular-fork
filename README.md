@@ -1,0 +1,34 @@
+# CoffeeShop Modular — .NET 10 Learning Curriculum
+
+Khóa học thực hành xây dựng lại [coffeeshop-modular](https://github.com/thangchung/coffeeshop-modular) bằng .NET 10, sau đó cải tiến thành modular monolith và hệ thống event-driven sử dụng Kafka.
+
+## Cách học
+
+Mỗi commit `lesson(NN)` là một bài học có thể build và test độc lập. Checkout commit, đọc tài liệu tương ứng trong `docs/lessons`, chạy:
+
+```bash
+dotnet restore CoffeeShop.slnx
+dotnet build CoffeeShop.slnx --no-restore
+dotnet test CoffeeShop.slnx --no-build
+```
+
+## Lộ trình
+
+- Phase 1 — dựng lại behavior gốc: Lessons 01–12.
+- Phase 2 — modular monolith: Lessons 13–20.
+- Phase 3 — Kafka và reliable messaging: Lessons 21–30.
+- Phase 4 — distributed capstone: Lessons 31–36.
+
+### Bài hiện tại
+
+- [Lesson 01 — Khởi tạo solution .NET 10](docs/lessons/01-bootstrap-dotnet-10.md)
+
+## Nhánh Git
+
+- `original/dotnet7`: đầy đủ 15 commit của source gốc để đối chiếu.
+- `learning/dotnet10-rebuild`: lịch sử khóa học tuyến tính.
+- `planning/dotnet10-curriculum`: design spec và implementation plans.
+
+## Attribution
+
+Behavior và ý tưởng ban đầu dựa trên dự án của Thang Chung. Bản fork giữ nguyên giấy phép MIT; những thay đổi .NET 10 và tài liệu tiếng Việt phục vụ mục đích học tập.
