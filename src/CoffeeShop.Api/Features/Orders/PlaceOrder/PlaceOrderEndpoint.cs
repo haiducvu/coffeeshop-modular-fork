@@ -1,4 +1,5 @@
 using CoffeeShop.Domain.Common;
+using CoffeeShop.Application.Orders;
 using CoffeeShop.Domain.Menu;
 using CoffeeShop.Domain.Orders;
 
@@ -12,7 +13,10 @@ public static class PlaceOrderEndpoint
         return endpoints;
     }
 
-    private static IResult Handle(PlaceOrderRequest request, InMemoryOrderStore store)
+    private static async Task<IResult> Handle(
+        PlaceOrderRequest request,
+        IOrderRepository repository,
+        CancellationToken cancellationToken)
     {
         if (!Enum.IsDefined((OrderSource)request.OrderSource)
             || !Enum.IsDefined((Location)request.Location)
@@ -34,7 +38,8 @@ public static class PlaceOrderEndpoint
                 request.LoyaltyMemberId,
                 baristaItems.Concat(kitchenItems).ToArray());
 
-            store.Add(order);
+            await repository.AddAsync(order, cancellationToken);
+            await repository.SaveChangesAsync(cancellationToken);
             return Results.Ok();
         }
         catch (DomainException)
