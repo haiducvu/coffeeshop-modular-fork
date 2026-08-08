@@ -1,3 +1,4 @@
+using CoffeeShop.Api.Features.Orders.GetFulfilled;
 using CoffeeShop.Api.Features.Orders.PlaceOrder;
 using CoffeeShop.Application.Orders;
 using CoffeeShop.Infrastructure;
@@ -22,6 +23,7 @@ var app = builder.Build();
 
 app.MapGet("/", () => "Hello World!");
 app.MapPlaceOrder();
+app.MapGetFulfilledOrders();
 
 if (!app.Environment.IsEnvironment("Testing"))
 {
