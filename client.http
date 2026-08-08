@@ -1,0 +1,19 @@
+@host = http://localhost:5206
+
+### Place an order using the original numeric-enum contract
+POST {{host}}/v1/api/orders
+Content-Type: application/json
+
+{
+  "commandType": 0,
+  "orderSource": 0,
+  "location": 0,
+  "loyaltyMemberId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "baristaItems": [
+    { "itemType": 0 }
+  ],
+  "kitchenItems": [
+    { "itemType": 6 }
+  ],
+  "timestamp": "2026-08-08T08:00:00Z"
+}

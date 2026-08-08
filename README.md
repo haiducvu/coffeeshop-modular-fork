@@ -22,6 +22,7 @@ dotnet test CoffeeShop.slnx --no-build
 ### Bài hiện tại
 
 - [Lesson 01 — Khởi tạo solution .NET 10](docs/lessons/01-bootstrap-dotnet-10.md)
+- [Lesson 02 — Endpoint đặt món đầu tiên](docs/lessons/02-place-order-endpoint.md)
 
 ## Nhánh Git
 
