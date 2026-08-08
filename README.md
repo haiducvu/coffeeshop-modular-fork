@@ -23,6 +23,7 @@ dotnet test CoffeeShop.slnx --no-build
 
 - [Lesson 01 — Khởi tạo solution .NET 10](docs/lessons/01-bootstrap-dotnet-10.md)
 - [Lesson 02 — Endpoint đặt món đầu tiên](docs/lessons/02-place-order-endpoint.md)
+- [Lesson 03 — Domain model và menu pricing](docs/lessons/03-order-domain-model.md)
 
 ## Nhánh Git
 

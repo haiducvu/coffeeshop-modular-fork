@@ -1,9 +1,11 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/CoffeeShop.Api/CoffeeShop.Api.csproj" />
+    <Project Path="src/CoffeeShop.Domain/CoffeeShop.Domain.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/CoffeeShop.ApiTests/CoffeeShop.ApiTests.csproj" />
+    <Project Path="tests/CoffeeShop.DomainTests/CoffeeShop.DomainTests.csproj" />
     <Project Path="tests/CoffeeShop.UnitTests/CoffeeShop.UnitTests.csproj" />
   </Folder>
 </Solution>
