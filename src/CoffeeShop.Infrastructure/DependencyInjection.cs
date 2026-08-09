@@ -1,5 +1,7 @@
 using CoffeeShop.Application.Common.Events;
 using CoffeeShop.Application.Barista;
+using CoffeeShop.Application.Common.Time;
+using CoffeeShop.Application.Kitchen;
 using CoffeeShop.Application.Orders;
 using CoffeeShop.Infrastructure.Events;
 using CoffeeShop.Infrastructure.Persistence;
@@ -20,6 +22,7 @@ public static class DependencyInjection
         services.AddSingleton<IPreparationDelay, TaskPreparationDelay>();
         services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();
         services.AddScoped<IBaristaItemRepository, EfBaristaItemRepository>();
+        services.AddScoped<IKitchenItemRepository, EfKitchenItemRepository>();
         services.AddScoped<IOrderRepository, EfOrderRepository>();
         return services;
     }

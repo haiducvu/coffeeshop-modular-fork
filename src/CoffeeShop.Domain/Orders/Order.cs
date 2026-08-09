@@ -19,6 +19,7 @@ public sealed class Order : AggregateRoot
         Location = location;
         LoyaltyMemberId = loyaltyMemberId;
         Status = OrderStatus.InProgress;
+        Version = Guid.NewGuid();
     }
 
     public Guid Id { get; private set; }
@@ -26,6 +27,7 @@ public sealed class Order : AggregateRoot
     public Location Location { get; private set; }
     public Guid LoyaltyMemberId { get; private set; }
     public OrderStatus Status { get; private set; }
+    public Guid Version { get; private set; }
     public IReadOnlyList<LineItem> LineItems => _lineItems;
 
     public static Order Place(
@@ -59,5 +61,34 @@ public sealed class Order : AggregateRoot
         }
 
         return order;
+    }
+
+    public bool CompleteItem(
+        Guid lineItemId,
+        string madeBy,
+        DateTimeOffset occurredAt)
+    {
+        var lineItem = _lineItems.SingleOrDefault(item => item.Id == lineItemId)
+            ?? throw new DomainException($"Line item {lineItemId} does not belong to order {Id}.");
+
+        if (!lineItem.Complete())
+        {
+            return false;
+        }
+
+        Status = _lineItems.All(item => item.Status == ItemStatus.Fulfilled)
+            ? OrderStatus.Fulfilled
+            : OrderStatus.InProgress;
+        Version = Guid.NewGuid();
+        RaiseDomainEvent(new OrderUpdated(
+            Id,
+            lineItem.Id,
+            lineItem.ItemType,
+            lineItem.Status,
+            Status,
+            madeBy,
+            occurredAt));
+
+        return true;
     }
 }

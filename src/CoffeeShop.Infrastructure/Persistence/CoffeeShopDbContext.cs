@@ -1,4 +1,5 @@
 using CoffeeShop.Domain.Barista;
+using CoffeeShop.Domain.Kitchen;
 using CoffeeShop.Domain.Orders;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,6 +11,7 @@ public sealed class CoffeeShopDbContext(DbContextOptions<CoffeeShopDbContext> op
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<LineItem> LineItems => Set<LineItem>();
     public DbSet<BaristaItem> BaristaItems => Set<BaristaItem>();
+    public DbSet<KitchenItem> KitchenItems => Set<KitchenItem>();
 
     public static CoffeeShopDbContext Create(string connectionString)
     {

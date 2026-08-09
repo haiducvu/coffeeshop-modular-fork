@@ -41,7 +41,7 @@ public sealed class EfOrderRepository(
     public async Task SaveChangesAsync(CancellationToken cancellationToken)
     {
         var aggregates = dbContext.ChangeTracker
-            .Entries<AggregateRoot>()
+            .Entries<Order>()
             .Select(entry => entry.Entity)
             .Where(aggregate => aggregate.DomainEvents.Count > 0)
             .ToArray();
@@ -49,7 +49,17 @@ public sealed class EfOrderRepository(
             .SelectMany(aggregate => aggregate.DomainEvents)
             .ToArray();
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            dbContext.ChangeTracker.Clear();
+            throw new OrderConcurrencyException(
+                "The order changed while an item was being completed.",
+                exception);
+        }
 
         if (events.Length == 0)
         {

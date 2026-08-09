@@ -1,4 +1,4 @@
-namespace CoffeeShop.Application.Barista;
+namespace CoffeeShop.Application.Common.Time;
 
 public interface IPreparationDelay
 {

@@ -24,4 +24,15 @@ public sealed class LineItem
     public decimal Price { get; private set; }
     public PreparationStation Station { get; private set; }
     public ItemStatus Status { get; private set; }
+
+    internal bool Complete()
+    {
+        if (Status == ItemStatus.Fulfilled)
+        {
+            return false;
+        }
+
+        Status = ItemStatus.Fulfilled;
+        return true;
+    }
 }

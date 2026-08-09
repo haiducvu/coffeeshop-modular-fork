@@ -1,4 +1,4 @@
-using CoffeeShop.Application.Barista;
+using CoffeeShop.Application.Common.Time;
 
 namespace CoffeeShop.Infrastructure.Time;
 
