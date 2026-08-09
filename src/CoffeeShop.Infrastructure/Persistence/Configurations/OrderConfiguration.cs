@@ -15,6 +15,7 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(x => x.Location).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(x => x.LoyaltyMemberId).IsRequired();
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+        builder.Ignore(x => x.DomainEvents);
         builder.HasMany(x => x.LineItems)
             .WithOne()
             .HasForeignKey("OrderId")

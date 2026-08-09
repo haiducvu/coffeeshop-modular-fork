@@ -1,4 +1,6 @@
+using CoffeeShop.Application.Common.Events;
 using CoffeeShop.Application.Orders;
+using CoffeeShop.Infrastructure.Events;
 using CoffeeShop.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,6 +14,7 @@ public static class DependencyInjection
         string connectionString)
     {
         services.AddDbContext<CoffeeShopDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();
         services.AddScoped<IOrderRepository, EfOrderRepository>();
         return services;
     }

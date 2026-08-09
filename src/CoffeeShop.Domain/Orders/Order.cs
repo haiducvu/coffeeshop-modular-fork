@@ -1,9 +1,10 @@
 using CoffeeShop.Domain.Common;
 using CoffeeShop.Domain.Menu;
+using CoffeeShop.Domain.Orders.Events;
 
 namespace CoffeeShop.Domain.Orders;
 
-public sealed class Order
+public sealed class Order : AggregateRoot
 {
     private readonly List<LineItem> _lineItems = [];
 
@@ -48,7 +49,13 @@ public sealed class Order
                 throw new DomainException($"{menuItem.Name} cannot be prepared by {selection.Station}.");
             }
 
-            order._lineItems.Add(new LineItem(menuItem));
+            var lineItem = new LineItem(menuItem);
+            order._lineItems.Add(lineItem);
+            order.RaiseDomainEvent(new OrderItemAccepted(
+                order.Id,
+                lineItem.Id,
+                lineItem.ItemType,
+                lineItem.Station));
         }
 
         return order;

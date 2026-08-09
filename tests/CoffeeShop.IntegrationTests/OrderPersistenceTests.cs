@@ -5,8 +5,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CoffeeShop.IntegrationTests;
 
+[Collection(PostgreSqlCollection.Name)]
 public sealed class OrderPersistenceTests(PostgreSqlFixture fixture)
-    : IClassFixture<PostgreSqlFixture>
 {
     [Fact]
     public async Task Saves_and_reloads_an_order_with_line_items()

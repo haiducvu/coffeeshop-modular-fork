@@ -6,8 +6,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CoffeeShop.IntegrationTests;
 
+[Collection(PostgreSqlCollection.Name)]
 public sealed class FulfilledOrderQueryTests(PostgreSqlFixture fixture)
-    : IClassFixture<PostgreSqlFixture>
 {
     [Fact]
     public async Task Lists_only_fulfilled_orders_and_includes_line_items()
@@ -20,7 +20,7 @@ public sealed class FulfilledOrderQueryTests(PostgreSqlFixture fixture)
         dbContext.Entry(fulfilled).Property(x => x.Status).CurrentValue = OrderStatus.Fulfilled;
         await dbContext.SaveChangesAsync();
         dbContext.ChangeTracker.Clear();
-        var repository = new EfOrderRepository(dbContext);
+        var repository = new EfOrderRepository(dbContext, new NoOpDomainEventDispatcher());
 
         var orders = await repository.ListAsync(
             new FulfilledOrdersSpecification(),
