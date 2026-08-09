@@ -3,12 +3,14 @@
     <Project Path="src/CoffeeShop.Api/CoffeeShop.Api.csproj" />
     <Project Path="src/CoffeeShop.Application/CoffeeShop.Application.csproj" />
     <Project Path="src/CoffeeShop.Domain/CoffeeShop.Domain.csproj" />
+    <Project Path="src/CoffeeShop.DataGen/CoffeeShop.DataGen.csproj" />
     <Project Path="src/CoffeeShop.Infrastructure/CoffeeShop.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/CoffeeShop.ApiTests/CoffeeShop.ApiTests.csproj" />
     <Project Path="tests/CoffeeShop.ApplicationTests/CoffeeShop.ApplicationTests.csproj" />
     <Project Path="tests/CoffeeShop.DomainTests/CoffeeShop.DomainTests.csproj" />
+    <Project Path="tests/CoffeeShop.DataGenTests/CoffeeShop.DataGenTests.csproj" />
     <Project Path="tests/CoffeeShop.IntegrationTests/CoffeeShop.IntegrationTests.csproj" />
     <Project Path="tests/CoffeeShop.UnitTests/CoffeeShop.UnitTests.csproj" />
   </Folder>
