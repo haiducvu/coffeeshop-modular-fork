@@ -1,7 +1,9 @@
 using CoffeeShop.Application.Common.Events;
+using CoffeeShop.Application.Barista;
 using CoffeeShop.Application.Orders;
 using CoffeeShop.Infrastructure.Events;
 using CoffeeShop.Infrastructure.Persistence;
+using CoffeeShop.Infrastructure.Time;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,7 +16,10 @@ public static class DependencyInjection
         string connectionString)
     {
         services.AddDbContext<CoffeeShopDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<IPreparationDelay, TaskPreparationDelay>();
         services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();
+        services.AddScoped<IBaristaItemRepository, EfBaristaItemRepository>();
         services.AddScoped<IOrderRepository, EfOrderRepository>();
         return services;
     }
