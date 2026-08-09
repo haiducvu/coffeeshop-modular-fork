@@ -1,11 +1,14 @@
 using CoffeeShop.Api.Features.Orders.GetFulfilled;
 using CoffeeShop.Api.Features.Orders.PlaceOrder;
+using CoffeeShop.Application;
 using CoffeeShop.Application.Orders;
 using CoffeeShop.Infrastructure;
 using CoffeeShop.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddLogging();
+builder.Services.AddCoffeeShopApplication();
 if (builder.Environment.IsEnvironment("Testing"))
 {
     builder.Services.AddSingleton<InMemoryOrderStore>();

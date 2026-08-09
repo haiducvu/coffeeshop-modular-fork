@@ -89,4 +89,26 @@ public sealed class PlaceOrderEndpointTests : IClassFixture<CoffeeShopApiFactory
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
+
+    [Fact]
+    public async Task Post_order_rejects_an_empty_loyalty_member_before_persistence()
+    {
+        var store = _factory.Services.GetRequiredService<InMemoryOrderStore>();
+        var countBeforeRequest = store.Orders.Count;
+        var request = new
+        {
+            commandType = 0,
+            orderSource = 0,
+            location = 0,
+            loyaltyMemberId = Guid.Empty,
+            baristaItems = new[] { new { itemType = 0 } },
+            kitchenItems = Array.Empty<object>(),
+            timestamp = DateTimeOffset.Parse("2026-08-08T08:00:00Z")
+        };
+
+        using var response = await _client.PostAsJsonAsync("/v1/api/orders", request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(countBeforeRequest, store.Orders.Count);
+    }
 }

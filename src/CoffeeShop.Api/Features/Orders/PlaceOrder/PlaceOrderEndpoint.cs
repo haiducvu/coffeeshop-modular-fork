@@ -1,7 +1,7 @@
+using CoffeeShop.Application.Orders.PlaceOrder;
 using CoffeeShop.Domain.Common;
-using CoffeeShop.Application.Orders;
-using CoffeeShop.Domain.Menu;
-using CoffeeShop.Domain.Orders;
+using FluentValidation;
+using MediatR;
 
 namespace CoffeeShop.Api.Features.Orders.PlaceOrder;
 
@@ -15,32 +15,24 @@ public static class PlaceOrderEndpoint
 
     private static async Task<IResult> Handle(
         PlaceOrderRequest request,
-        IOrderRepository repository,
+        ISender sender,
         CancellationToken cancellationToken)
     {
-        if (!Enum.IsDefined((OrderSource)request.OrderSource)
-            || !Enum.IsDefined((Location)request.Location)
-            || request.BaristaItems.Concat(request.KitchenItems)
-                .Any(item => !Enum.IsDefined((ItemType)item.ItemType)))
-        {
-            return Results.BadRequest();
-        }
-
         try
         {
-            var baristaItems = request.BaristaItems.Select(item =>
-                new ItemSelection((ItemType)item.ItemType, PreparationStation.Barista));
-            var kitchenItems = request.KitchenItems.Select(item =>
-                new ItemSelection((ItemType)item.ItemType, PreparationStation.Kitchen));
-            var order = Order.Place(
-                (OrderSource)request.OrderSource,
-                (Location)request.Location,
+            var command = new PlaceOrderCommand(
+                request.OrderSource,
+                request.Location,
                 request.LoyaltyMemberId,
-                baristaItems.Concat(kitchenItems).ToArray());
+                request.BaristaItems.Select(item => new PlaceOrderItem(item.ItemType)).ToArray(),
+                request.KitchenItems.Select(item => new PlaceOrderItem(item.ItemType)).ToArray());
 
-            await repository.AddAsync(order, cancellationToken);
-            await repository.SaveChangesAsync(cancellationToken);
+            await sender.Send(command, cancellationToken);
             return Results.Ok();
+        }
+        catch (ValidationException)
+        {
+            return Results.BadRequest();
         }
         catch (DomainException)
         {

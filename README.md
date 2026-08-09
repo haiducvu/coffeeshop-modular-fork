@@ -26,6 +26,7 @@ dotnet test CoffeeShop.slnx --no-build
 - [Lesson 03 — Domain model và menu pricing](docs/lessons/03-order-domain-model.md)
 - [Lesson 04 — EF Core và PostgreSQL](docs/lessons/04-ef-core-postgresql.md)
 - [Lesson 05 — Query fulfilled orders bằng Specification](docs/lessons/05-query-specifications.md)
+- [Lesson 06 — Dispatch use case và validation pipeline](docs/lessons/06-mediatr-validation.md)
 
 ## Nhánh Git
 

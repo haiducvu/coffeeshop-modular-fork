@@ -1,4 +1,5 @@
-using CoffeeShop.Application.Orders;
+using CoffeeShop.Application.Orders.GetFulfilled;
+using MediatR;
 
 namespace CoffeeShop.Api.Features.Orders.GetFulfilled;
 
@@ -11,23 +12,12 @@ public static class GetFulfilledOrdersEndpoint
     }
 
     private static async Task<IResult> Handle(
-        IOrderRepository repository,
+        ISender sender,
         CancellationToken cancellationToken)
     {
-        var orders = await repository.ListAsync(
-            new FulfilledOrdersSpecification(),
+        var response = await sender.Send(
+            new GetFulfilledOrdersQuery(),
             cancellationToken);
-
-        var response = orders.Select(order => new FulfilledOrderDto(
-            order.Id,
-            order.LoyaltyMemberId,
-            order.Status.ToString(),
-            order.LineItems.Select(lineItem => new FulfilledOrderLineItemDto(
-                lineItem.Id,
-                lineItem.Name,
-                lineItem.Price,
-                lineItem.Station.ToString(),
-                lineItem.Status.ToString())).ToArray())).ToArray();
 
         return Results.Ok(response);
     }
