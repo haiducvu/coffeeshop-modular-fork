@@ -9,6 +9,7 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddCoffeeShopApplication(this IServiceCollection services)
     {
+        services.AddSingleton(TimeProvider.System);
         services.AddValidatorsFromAssemblyContaining<PlaceOrderValidator>(ServiceLifetime.Transient);
         services.AddMediatR(configuration =>
         {

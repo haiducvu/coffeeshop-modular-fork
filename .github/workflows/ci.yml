@@ -23,3 +23,13 @@ jobs:
         run: dotnet build CoffeeShop.slnx --configuration Release --no-restore
       - name: Test
         run: dotnet test CoffeeShop.slnx --configuration Release --no-build
+      - name: Install Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/CoffeeShop.SignalRClient/package-lock.json
+      - name: Install SignalR client dependencies
+        run: npm ci --prefix src/CoffeeShop.SignalRClient
+      - name: Build SignalR client
+        run: npm run build --prefix src/CoffeeShop.SignalRClient

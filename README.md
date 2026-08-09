@@ -30,6 +30,7 @@ dotnet test CoffeeShop.slnx --no-build
 - [Lesson 07 — Domain event trong process](docs/lessons/07-domain-events.md)
 - [Lesson 08 — Barista async workflow và deterministic time](docs/lessons/08-barista-preparation.md)
 - [Lesson 09 — Kitchen workflow và Order completion](docs/lessons/09-kitchen-order-completion.md)
+- [Lesson 10 — Typed SignalR updates và TypeScript client](docs/lessons/10-signalr-client.md)
 
 ## Nhánh Git
 

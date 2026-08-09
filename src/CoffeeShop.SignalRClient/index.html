@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Theo dõi trạng thái đơn CoffeeShop theo thời gian thực" />
+    <title>CoffeeShop Live Orders</title>
+  </head>
+  <body>
+    <main class="shell">
+      <header>
+        <p class="eyebrow">COFFEESHOP · LIVE</p>
+        <h1>Order preparation stream</h1>
+        <p class="intro">Cập nhật typed message từ Barista và Kitchen qua SignalR.</p>
+        <div class="connection">
+          <span id="status-dot" class="status-dot" aria-hidden="true"></span>
+          <span id="connection-status" role="status">Đang kết nối…</span>
+        </div>
+      </header>
+      <section aria-labelledby="updates-title">
+        <div class="section-heading">
+          <h2 id="updates-title">Cập nhật gần nhất</h2>
+          <span id="update-count">0 events</span>
+        </div>
+        <ol id="updates" class="updates" aria-live="polite"></ol>
+        <p id="empty-state" class="empty-state">Chưa có order event. Hãy đặt một món để bắt đầu.</p>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

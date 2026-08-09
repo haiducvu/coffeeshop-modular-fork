@@ -18,7 +18,6 @@ public static class DependencyInjection
         string connectionString)
     {
         services.AddDbContext<CoffeeShopDbContext>(options => options.UseNpgsql(connectionString));
-        services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IPreparationDelay, TaskPreparationDelay>();
         services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();
         services.AddScoped<IBaristaItemRepository, EfBaristaItemRepository>();
