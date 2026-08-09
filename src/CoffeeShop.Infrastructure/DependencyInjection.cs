@@ -17,7 +17,12 @@ public static class DependencyInjection
         this IServiceCollection services,
         string connectionString)
     {
-        services.AddDbContext<CoffeeShopDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddDbContext<CoffeeShopDbContext>(options => options.UseNpgsql(
+            connectionString,
+            providerOptions => providerOptions.EnableRetryOnFailure(
+                maxRetryCount: 5,
+                maxRetryDelay: TimeSpan.FromSeconds(5),
+                errorCodesToAdd: null)));
         services.AddSingleton<IPreparationDelay, TaskPreparationDelay>();
         services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();
         services.AddScoped<IBaristaItemRepository, EfBaristaItemRepository>();

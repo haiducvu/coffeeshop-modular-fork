@@ -33,3 +33,10 @@ jobs:
         run: npm ci --prefix src/CoffeeShop.SignalRClient
       - name: Build SignalR client
         run: npm run build --prefix src/CoffeeShop.SignalRClient
+      - name: Build container images
+        run: docker compose --profile demo build
+      - name: Run Phase 1 smoke test
+        run: |
+          trap 'docker compose down --volumes' EXIT
+          docker compose up -d postgres api signalr-client
+          ./scripts/phase-1-smoke.sh

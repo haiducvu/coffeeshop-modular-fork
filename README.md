@@ -12,6 +12,25 @@ dotnet build CoffeeShop.slnx --no-restore
 dotnet test CoffeeShop.slnx --no-build
 ```
 
+## Chạy toàn bộ Phase 1
+
+```bash
+docker compose up -d --build postgres api signalr-client
+./scripts/phase-1-smoke.sh
+```
+
+Client chạy tại <http://localhost:5173>. DataGen là profile opt-in:
+
+```bash
+docker compose --profile demo run --rm datagen
+```
+
+Dọn containers và database volume local:
+
+```bash
+docker compose down --volumes
+```
+
 ## Lộ trình
 
 - Phase 1 — dựng lại behavior gốc: Lessons 01–12.
@@ -32,6 +51,7 @@ dotnet test CoffeeShop.slnx --no-build
 - [Lesson 09 — Kitchen workflow và Order completion](docs/lessons/09-kitchen-order-completion.md)
 - [Lesson 10 — Typed SignalR updates và TypeScript client](docs/lessons/10-signalr-client.md)
 - [Lesson 11 — Data generator hữu hạn và deterministic](docs/lessons/11-data-generator.md)
+- [Lesson 12 — Docker Compose và Phase 1 smoke test](docs/lessons/12-docker-compose.md)
 
 ## Nhánh Git
 

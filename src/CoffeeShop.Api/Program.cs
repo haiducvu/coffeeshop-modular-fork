@@ -4,13 +4,16 @@ using CoffeeShop.Api.Realtime;
 using CoffeeShop.Application;
 using CoffeeShop.Application.Common.Events;
 using CoffeeShop.Application.Orders;
+using CoffeeShop.Api.Health;
 using CoffeeShop.Domain.Orders.Events;
 using CoffeeShop.Infrastructure;
 using CoffeeShop.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddLogging();
+var healthChecks = builder.Services.AddHealthChecks();
 builder.Services.AddCoffeeShopApplication();
 builder.Services.AddSignalR();
 builder.Services.AddTransient<SignalROrderUpdatePublisher>();
@@ -38,12 +41,23 @@ else
     var connectionString = builder.Configuration.GetConnectionString("CoffeeShop")
         ?? throw new InvalidOperationException("ConnectionStrings:CoffeeShop is required.");
     builder.Services.AddCoffeeShopInfrastructure(connectionString);
+    healthChecks.AddCheck<PostgreSqlReadinessHealthCheck>(
+        "postgresql",
+        tags: ["ready"]);
 }
 
 var app = builder.Build();
 
 app.UseCors(clientCorsPolicy);
 app.MapGet("/", () => "Hello World!");
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("ready")
+});
 app.MapPlaceOrder();
 app.MapGetFulfilledOrders();
 app.MapHub<OrderUpdatesHub>("/message");

@@ -1,0 +1,75 @@
+name: coffeeshop-modular-fork
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-coffeeshop}
+      POSTGRES_USER: ${POSTGRES_USER:-coffeeshop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-coffeeshop-local}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
+
+  api:
+    build:
+      context: .
+      dockerfile: src/CoffeeShop.Api/Dockerfile
+    environment:
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__CoffeeShop: Host=postgres;Port=5432;Database=${POSTGRES_DB:-coffeeshop};Username=${POSTGRES_USER:-coffeeshop};Password=${POSTGRES_PASSWORD:-coffeeshop-local}
+      ClientOrigin: http://localhost:${CLIENT_PORT:-5173}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/health/ready"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  signalr-client:
+    build:
+      context: .
+      dockerfile: src/CoffeeShop.SignalRClient/Dockerfile
+      args:
+        VITE_HUB_URL: http://localhost:${API_PORT:-8080}/message
+    ports:
+      - "${CLIENT_PORT:-5173}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--output-document=-", "http://localhost:8080/"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  datagen:
+    profiles: ["demo"]
+    build:
+      context: .
+      dockerfile: src/CoffeeShop.DataGen/Dockerfile
+    environment:
+      OrderGenerator__ApiBaseUrl: http://api:8080
+      OrderGenerator__OrderCount: ${DATAGEN_ORDER_COUNT:-3}
+      OrderGenerator__Interval: ${DATAGEN_INTERVAL:-00:00:01}
+      OrderGenerator__Seed: ${DATAGEN_SEED:-20260808}
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  postgres-data:
