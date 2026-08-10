@@ -1,8 +1,7 @@
-using CoffeeShop.Application.Common.Events;
-using CoffeeShop.Application.Orders;
-using CoffeeShop.Domain.Menu;
-using CoffeeShop.Domain.Orders;
-using CoffeeShop.Domain.Orders.Events;
+using CoffeeShop.Contracts.Menu;
+using CoffeeShop.Contracts.Orders;
+using CoffeeShop.Modules.Counter.Application.Orders;
+using CoffeeShop.Modules.Counter.Domain.Orders;
 
 namespace CoffeeShop.ApplicationTests;
 
@@ -27,12 +26,8 @@ public sealed class OrderItemPreparedHandlerTests
             "barista",
             DateTimeOffset.UnixEpoch);
 
-        await handler.Handle(
-            new DomainEventNotification<OrderItemPrepared>(prepared),
-            CancellationToken.None);
-        await handler.Handle(
-            new DomainEventNotification<OrderItemPrepared>(prepared),
-            CancellationToken.None);
+        await handler.HandleAsync(prepared, CancellationToken.None);
+        await handler.HandleAsync(prepared, CancellationToken.None);
 
         Assert.Equal(ItemStatus.Fulfilled, order.LineItems[0].Status);
         Assert.Equal(OrderStatus.Fulfilled, order.Status);

@@ -1,6 +1,6 @@
-using CoffeeShop.Application.Orders.GetFulfilled;
-using CoffeeShop.Domain.Menu;
-using CoffeeShop.Domain.Orders;
+using CoffeeShop.Contracts.Menu;
+using CoffeeShop.Modules.Counter.Application.Orders.GetFulfilled;
+using CoffeeShop.Modules.Counter.Domain.Orders;
 
 namespace CoffeeShop.ApplicationTests;
 
@@ -18,9 +18,7 @@ public sealed class GetFulfilledOrdersHandlerTests
         repository.Orders.Add(order);
         var handler = new GetFulfilledOrdersHandler(repository);
 
-        var result = await handler.Handle(
-            new GetFulfilledOrdersQuery(),
-            CancellationToken.None);
+        var result = await handler.HandleAsync(CancellationToken.None);
 
         var dto = Assert.Single(result);
         Assert.Equal(order.Id, dto.Id);

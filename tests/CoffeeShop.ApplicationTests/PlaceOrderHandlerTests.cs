@@ -1,5 +1,6 @@
-using CoffeeShop.Application.Orders.PlaceOrder;
-using CoffeeShop.Domain.Menu;
+using CoffeeShop.Contracts.Menu;
+using CoffeeShop.Modules.Counter;
+using CoffeeShop.Modules.Counter.Application.Orders.PlaceOrder;
 
 namespace CoffeeShop.ApplicationTests;
 
@@ -11,14 +12,14 @@ public sealed class PlaceOrderHandlerTests
         var repository = new RecordingOrderRepository();
         var handler = new PlaceOrderHandler(repository);
         var loyaltyMemberId = Guid.NewGuid();
-        var command = new PlaceOrderCommand(
+        var input = new PlaceOrderInput(
             0,
             0,
             loyaltyMemberId,
-            [new PlaceOrderItem(0)],
-            [new PlaceOrderItem(7)]);
+            [0],
+            [7]);
 
-        var result = await handler.Handle(command, CancellationToken.None);
+        var result = await handler.HandleAsync(input, CancellationToken.None);
 
         var order = Assert.Single(repository.Orders);
         Assert.Equal(order.Id, result.OrderId);

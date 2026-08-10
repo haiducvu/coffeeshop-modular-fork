@@ -1,5 +1,4 @@
-using CoffeeShop.Application.Common.Events;
-using CoffeeShop.Domain.Common;
+using CoffeeShop.SharedKernel.Events;
 
 namespace CoffeeShop.IntegrationTests;
 

@@ -1,7 +1,5 @@
-using CoffeeShop.Application.Common.Events;
-using CoffeeShop.Domain.Orders;
-using CoffeeShop.Domain.Orders.Events;
-using MediatR;
+using CoffeeShop.Contracts.Orders;
+using CoffeeShop.SharedKernel.Events;
 using Microsoft.AspNetCore.SignalR;
 
 namespace CoffeeShop.Api.Realtime;
@@ -9,14 +7,13 @@ namespace CoffeeShop.Api.Realtime;
 public sealed class SignalROrderUpdatePublisher(
     IHubContext<OrderUpdatesHub, IOrderUpdatesClient> hubContext,
     TimeProvider timeProvider)
-    : INotificationHandler<DomainEventNotification<OrderItemAccepted>>,
-      INotificationHandler<DomainEventNotification<OrderUpdated>>
+    : IDomainEventHandler<OrderItemAccepted>,
+      IDomainEventHandler<OrderUpdated>
 {
-    public Task Handle(
-        DomainEventNotification<OrderItemAccepted> notification,
+    public Task HandleAsync(
+        OrderItemAccepted accepted,
         CancellationToken cancellationToken)
     {
-        var accepted = notification.DomainEvent;
         return hubContext.Clients.All.ReceiveOrderUpdate(new OrderUpdateMessage(
             accepted.OrderId,
             accepted.LineItemId,
@@ -27,11 +24,10 @@ public sealed class SignalROrderUpdatePublisher(
             timeProvider.GetUtcNow()));
     }
 
-    public Task Handle(
-        DomainEventNotification<OrderUpdated> notification,
+    public Task HandleAsync(
+        OrderUpdated updated,
         CancellationToken cancellationToken)
     {
-        var updated = notification.DomainEvent;
         return hubContext.Clients.All.ReceiveOrderUpdate(new OrderUpdateMessage(
             updated.OrderId,
             updated.LineItemId,

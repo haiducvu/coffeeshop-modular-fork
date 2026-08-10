@@ -19,7 +19,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\CoffeeShop.Application\CoffeeShop.Application.csproj" />
+    <ProjectReference Include="..\..\src\CoffeeShop.Contracts\CoffeeShop.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\CoffeeShop.Modules.Barista\CoffeeShop.Modules.Barista.csproj" />
+    <ProjectReference Include="..\..\src\CoffeeShop.Modules.Counter\CoffeeShop.Modules.Counter.csproj" />
+    <ProjectReference Include="..\..\src\CoffeeShop.Modules.Kitchen\CoffeeShop.Modules.Kitchen.csproj" />
+    <ProjectReference Include="..\..\src\CoffeeShop.SharedKernel\CoffeeShop.SharedKernel.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,7 +1,8 @@
-using CoffeeShop.Application.Orders;
-using CoffeeShop.Domain.Menu;
-using CoffeeShop.Domain.Orders;
-using CoffeeShop.Infrastructure.Persistence;
+using CoffeeShop.Contracts.Menu;
+using CoffeeShop.Contracts.Orders;
+using CoffeeShop.Modules.Counter.Application.Orders;
+using CoffeeShop.Modules.Counter.Domain.Orders;
+using CoffeeShop.Modules.Counter.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace CoffeeShop.IntegrationTests;
@@ -12,7 +13,7 @@ public sealed class FulfilledOrderQueryTests(PostgreSqlFixture fixture)
     [Fact]
     public async Task Lists_only_fulfilled_orders_and_includes_line_items()
     {
-        await using var dbContext = CoffeeShopDbContext.Create(fixture.ConnectionString);
+        await using var dbContext = CounterDbContext.Create(fixture.ConnectionString);
         await dbContext.Database.MigrateAsync();
         var fulfilled = CreateOrder(ItemType.Cappuccino, PreparationStation.Barista);
         var inProgress = CreateOrder(ItemType.Croissant, PreparationStation.Kitchen);

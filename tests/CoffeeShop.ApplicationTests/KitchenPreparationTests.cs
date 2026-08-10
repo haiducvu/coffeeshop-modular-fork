@@ -1,9 +1,8 @@
-using CoffeeShop.Application.Common.Events;
-using CoffeeShop.Application.Common.Time;
-using CoffeeShop.Application.Kitchen;
-using CoffeeShop.Domain.Kitchen;
-using CoffeeShop.Domain.Menu;
-using CoffeeShop.Domain.Orders.Events;
+using CoffeeShop.Contracts.Menu;
+using CoffeeShop.Contracts.Orders;
+using CoffeeShop.Modules.Kitchen.Application;
+using CoffeeShop.Modules.Kitchen.Domain;
+using CoffeeShop.SharedKernel.Time;
 
 namespace CoffeeShop.ApplicationTests;
 
@@ -29,9 +28,7 @@ public sealed class KitchenPreparationTests
             itemType,
             PreparationStation.Kitchen);
 
-        await handler.Handle(
-            new DomainEventNotification<OrderItemAccepted>(accepted),
-            CancellationToken.None);
+        await handler.HandleAsync(accepted, CancellationToken.None);
 
         Assert.Equal(TimeSpan.FromSeconds(expectedSeconds), Assert.Single(delay.Delays));
         var item = Assert.Single(repository.Items);

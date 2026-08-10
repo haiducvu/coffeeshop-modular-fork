@@ -1,7 +1,6 @@
-using CoffeeShop.Application.Orders.PlaceOrder;
-using CoffeeShop.Domain.Common;
+using CoffeeShop.Modules.Counter;
+using CoffeeShop.SharedKernel.Domain;
 using FluentValidation;
-using MediatR;
 
 namespace CoffeeShop.Api.Features.Orders.PlaceOrder;
 
@@ -15,19 +14,19 @@ public static class PlaceOrderEndpoint
 
     private static async Task<IResult> Handle(
         PlaceOrderRequest request,
-        ISender sender,
+        ICounterModule counterModule,
         CancellationToken cancellationToken)
     {
         try
         {
-            var command = new PlaceOrderCommand(
+            var input = new PlaceOrderInput(
                 request.OrderSource,
                 request.Location,
                 request.LoyaltyMemberId,
-                request.BaristaItems.Select(item => new PlaceOrderItem(item.ItemType)).ToArray(),
-                request.KitchenItems.Select(item => new PlaceOrderItem(item.ItemType)).ToArray());
+                request.BaristaItems.Select(item => item.ItemType).ToArray(),
+                request.KitchenItems.Select(item => item.ItemType).ToArray());
 
-            await sender.Send(command, cancellationToken);
+            await counterModule.PlaceOrderAsync(input, cancellationToken);
             return Results.Ok();
         }
         catch (ValidationException)

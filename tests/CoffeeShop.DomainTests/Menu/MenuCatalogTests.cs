@@ -1,5 +1,6 @@
 using System.Globalization;
-using CoffeeShop.Domain.Menu;
+using CoffeeShop.Contracts.Menu;
+using CoffeeShop.Modules.Counter.Domain.Menu;
 
 namespace CoffeeShop.DomainTests.Menu;
 

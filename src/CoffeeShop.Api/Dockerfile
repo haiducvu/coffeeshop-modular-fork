@@ -5,15 +5,19 @@ WORKDIR /source
 
 COPY global.json Directory.Build.props Directory.Packages.props ./
 COPY src/CoffeeShop.Api/CoffeeShop.Api.csproj src/CoffeeShop.Api/
-COPY src/CoffeeShop.Application/CoffeeShop.Application.csproj src/CoffeeShop.Application/
-COPY src/CoffeeShop.Domain/CoffeeShop.Domain.csproj src/CoffeeShop.Domain/
-COPY src/CoffeeShop.Infrastructure/CoffeeShop.Infrastructure.csproj src/CoffeeShop.Infrastructure/
+COPY src/CoffeeShop.Contracts/CoffeeShop.Contracts.csproj src/CoffeeShop.Contracts/
+COPY src/CoffeeShop.Modules.Barista/CoffeeShop.Modules.Barista.csproj src/CoffeeShop.Modules.Barista/
+COPY src/CoffeeShop.Modules.Counter/CoffeeShop.Modules.Counter.csproj src/CoffeeShop.Modules.Counter/
+COPY src/CoffeeShop.Modules.Kitchen/CoffeeShop.Modules.Kitchen.csproj src/CoffeeShop.Modules.Kitchen/
+COPY src/CoffeeShop.SharedKernel/CoffeeShop.SharedKernel.csproj src/CoffeeShop.SharedKernel/
 RUN dotnet restore src/CoffeeShop.Api/CoffeeShop.Api.csproj
 
 COPY src/CoffeeShop.Api/ src/CoffeeShop.Api/
-COPY src/CoffeeShop.Application/ src/CoffeeShop.Application/
-COPY src/CoffeeShop.Domain/ src/CoffeeShop.Domain/
-COPY src/CoffeeShop.Infrastructure/ src/CoffeeShop.Infrastructure/
+COPY src/CoffeeShop.Contracts/ src/CoffeeShop.Contracts/
+COPY src/CoffeeShop.Modules.Barista/ src/CoffeeShop.Modules.Barista/
+COPY src/CoffeeShop.Modules.Counter/ src/CoffeeShop.Modules.Counter/
+COPY src/CoffeeShop.Modules.Kitchen/ src/CoffeeShop.Modules.Kitchen/
+COPY src/CoffeeShop.SharedKernel/ src/CoffeeShop.SharedKernel/
 RUN dotnet publish src/CoffeeShop.Api/CoffeeShop.Api.csproj \
     --configuration Release \
     --no-restore \

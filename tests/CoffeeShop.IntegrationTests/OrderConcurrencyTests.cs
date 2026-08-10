@@ -1,7 +1,7 @@
-using CoffeeShop.Application.Orders;
-using CoffeeShop.Domain.Menu;
-using CoffeeShop.Domain.Orders;
-using CoffeeShop.Infrastructure.Persistence;
+using CoffeeShop.Contracts.Menu;
+using CoffeeShop.Modules.Counter.Application.Orders;
+using CoffeeShop.Modules.Counter.Domain.Orders;
+using CoffeeShop.Modules.Counter.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace CoffeeShop.IntegrationTests;
@@ -12,7 +12,7 @@ public sealed class OrderConcurrencyTests(PostgreSqlFixture fixture)
     [Fact]
     public async Task Rejects_a_stale_completion_instead_of_losing_the_first_update()
     {
-        await using var setup = CoffeeShopDbContext.Create(fixture.ConnectionString);
+        await using var setup = CounterDbContext.Create(fixture.ConnectionString);
         await setup.Database.MigrateAsync();
         var order = Order.Place(
             OrderSource.Counter,
@@ -25,8 +25,8 @@ public sealed class OrderConcurrencyTests(PostgreSqlFixture fixture)
         setup.Orders.Add(order);
         await setup.SaveChangesAsync();
 
-        await using var firstContext = CoffeeShopDbContext.Create(fixture.ConnectionString);
-        await using var staleContext = CoffeeShopDbContext.Create(fixture.ConnectionString);
+        await using var firstContext = CounterDbContext.Create(fixture.ConnectionString);
+        await using var staleContext = CounterDbContext.Create(fixture.ConnectionString);
         var firstOrder = await firstContext.Orders
             .Include(value => value.LineItems)
             .SingleAsync(value => value.Id == order.Id);

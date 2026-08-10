@@ -1,6 +1,6 @@
-using CoffeeShop.Domain.Menu;
-using CoffeeShop.Domain.Orders;
-using CoffeeShop.Domain.Orders.Events;
+using CoffeeShop.Contracts.Menu;
+using CoffeeShop.Contracts.Orders;
+using CoffeeShop.Modules.Counter.Domain.Orders;
 
 namespace CoffeeShop.DomainTests.Orders;
 

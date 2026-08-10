@@ -1,10 +1,12 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/CoffeeShop.Api/CoffeeShop.Api.csproj" />
-    <Project Path="src/CoffeeShop.Application/CoffeeShop.Application.csproj" />
-    <Project Path="src/CoffeeShop.Domain/CoffeeShop.Domain.csproj" />
+    <Project Path="src/CoffeeShop.Contracts/CoffeeShop.Contracts.csproj" />
     <Project Path="src/CoffeeShop.DataGen/CoffeeShop.DataGen.csproj" />
-    <Project Path="src/CoffeeShop.Infrastructure/CoffeeShop.Infrastructure.csproj" />
+    <Project Path="src/CoffeeShop.Modules.Barista/CoffeeShop.Modules.Barista.csproj" />
+    <Project Path="src/CoffeeShop.Modules.Counter/CoffeeShop.Modules.Counter.csproj" />
+    <Project Path="src/CoffeeShop.Modules.Kitchen/CoffeeShop.Modules.Kitchen.csproj" />
+    <Project Path="src/CoffeeShop.SharedKernel/CoffeeShop.SharedKernel.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/CoffeeShop.ApiTests/CoffeeShop.ApiTests.csproj" />

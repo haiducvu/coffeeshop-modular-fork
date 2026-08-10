@@ -1,10 +1,9 @@
-using CoffeeShop.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Npgsql;
 
 namespace CoffeeShop.Api.Health;
 
-public sealed class PostgreSqlReadinessHealthCheck(IServiceScopeFactory scopeFactory)
+public sealed class PostgreSqlReadinessHealthCheck(string connectionString)
     : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(
@@ -13,13 +12,9 @@ public sealed class PostgreSqlReadinessHealthCheck(IServiceScopeFactory scopeFac
     {
         try
         {
-            await using var scope = scopeFactory.CreateAsyncScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<CoffeeShopDbContext>();
-            var canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
-
-            return canConnect
-                ? HealthCheckResult.Healthy("PostgreSQL is reachable.")
-                : HealthCheckResult.Unhealthy("PostgreSQL is not reachable.");
+            await using var connection = new NpgsqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+            return HealthCheckResult.Healthy("PostgreSQL is reachable.");
         }
         catch (Exception exception)
         {

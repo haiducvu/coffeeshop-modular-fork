@@ -19,7 +19,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\CoffeeShop.Domain\CoffeeShop.Domain.csproj" />
+    <ProjectReference Include="..\..\src\CoffeeShop.Contracts\CoffeeShop.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\CoffeeShop.Modules.Counter\CoffeeShop.Modules.Counter.csproj" />
+    <ProjectReference Include="..\..\src\CoffeeShop.SharedKernel\CoffeeShop.SharedKernel.csproj" />
   </ItemGroup>
 
 </Project>

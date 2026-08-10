@@ -1,4 +1,5 @@
-using CoffeeShop.Application.Orders.PlaceOrder;
+using CoffeeShop.Modules.Counter;
+using CoffeeShop.Modules.Counter.Application.Orders.PlaceOrder;
 
 namespace CoffeeShop.ApplicationTests;
 
@@ -9,7 +10,7 @@ public sealed class PlaceOrderValidatorTests
     {
         var validator = new PlaceOrderValidator();
 
-        var result = await validator.ValidateAsync(ValidCommand() with
+        var result = await validator.ValidateAsync(ValidInput() with
         {
             LoyaltyMemberId = Guid.Empty
         });
@@ -22,7 +23,7 @@ public sealed class PlaceOrderValidatorTests
     {
         var validator = new PlaceOrderValidator();
 
-        var result = await validator.ValidateAsync(ValidCommand() with
+        var result = await validator.ValidateAsync(ValidInput() with
         {
             BaristaItems = [],
             KitchenItems = []
@@ -35,24 +36,24 @@ public sealed class PlaceOrderValidatorTests
     public async Task Rejects_undefined_order_location_and_item_enums()
     {
         var validator = new PlaceOrderValidator();
-        var command = ValidCommand() with
+        var input = ValidInput() with
         {
             OrderSource = 999,
             Location = 999,
-            BaristaItems = [new PlaceOrderItem(999)]
+            BaristaItems = [999]
         };
 
-        var result = await validator.ValidateAsync(command);
+        var result = await validator.ValidateAsync(input);
 
         Assert.Contains(result.Errors, error => error.PropertyName == "OrderSource");
         Assert.Contains(result.Errors, error => error.PropertyName == "Location");
-        Assert.Contains(result.Errors, error => error.PropertyName == "BaristaItems[0].ItemType");
+        Assert.Contains(result.Errors, error => error.PropertyName == "BaristaItems[0]");
     }
 
-    private static PlaceOrderCommand ValidCommand() => new(
+    private static PlaceOrderInput ValidInput() => new(
         0,
         0,
         Guid.NewGuid(),
-        [new PlaceOrderItem(0)],
+        [0],
         []);
 }

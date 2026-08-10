@@ -1,6 +1,6 @@
-using CoffeeShop.Application.Common.Queries;
-using CoffeeShop.Application.Orders;
-using CoffeeShop.Domain.Orders;
+using CoffeeShop.Modules.Counter.Application.Common;
+using CoffeeShop.Modules.Counter.Application.Orders;
+using CoffeeShop.Modules.Counter.Domain.Orders;
 
 namespace CoffeeShop.ApplicationTests;
 

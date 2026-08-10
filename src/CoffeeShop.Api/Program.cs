@@ -1,27 +1,30 @@
+using CoffeeShop.Api.Events;
 using CoffeeShop.Api.Features.Orders.GetFulfilled;
 using CoffeeShop.Api.Features.Orders.PlaceOrder;
-using CoffeeShop.Api.Realtime;
-using CoffeeShop.Application;
-using CoffeeShop.Application.Common.Events;
-using CoffeeShop.Application.Orders;
 using CoffeeShop.Api.Health;
-using CoffeeShop.Domain.Orders.Events;
-using CoffeeShop.Infrastructure;
-using CoffeeShop.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
+using CoffeeShop.Api.Realtime;
+using CoffeeShop.Api.Time;
+using CoffeeShop.Contracts.Orders;
+using CoffeeShop.Modules.Barista;
+using CoffeeShop.Modules.Counter;
+using CoffeeShop.Modules.Kitchen;
+using CoffeeShop.SharedKernel.Events;
+using CoffeeShop.SharedKernel.Time;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddLogging();
 var healthChecks = builder.Services.AddHealthChecks();
-builder.Services.AddCoffeeShopApplication();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IPreparationDelay, TaskPreparationDelay>();
+builder.Services.AddScoped<IDomainEventDispatcher, ServiceProviderDomainEventDispatcher>();
 builder.Services.AddSignalR();
 builder.Services.AddTransient<SignalROrderUpdatePublisher>();
 builder.Services.AddTransient<
-    MediatR.INotificationHandler<DomainEventNotification<OrderItemAccepted>>>(services =>
+    IDomainEventHandler<OrderItemAccepted>>(services =>
         services.GetRequiredService<SignalROrderUpdatePublisher>());
 builder.Services.AddTransient<
-    MediatR.INotificationHandler<DomainEventNotification<OrderUpdated>>>(services =>
+    IDomainEventHandler<OrderUpdated>>(services =>
         services.GetRequiredService<SignalROrderUpdatePublisher>());
 const string clientCorsPolicy = "CoffeeShopClient";
 var clientOrigin = builder.Configuration["ClientOrigin"] ?? "http://localhost:5173";
@@ -32,15 +35,16 @@ builder.Services.AddCors(options => options.AddPolicy(clientCorsPolicy, policy =
         .AllowCredentials()));
 if (builder.Environment.IsEnvironment("Testing"))
 {
-    builder.Services.AddSingleton<InMemoryOrderStore>();
-    builder.Services.AddSingleton<IOrderRepository>(services =>
-        services.GetRequiredService<InMemoryOrderStore>());
+    builder.Services.AddCounterModuleForTesting();
 }
 else
 {
     var connectionString = builder.Configuration.GetConnectionString("CoffeeShop")
         ?? throw new InvalidOperationException("ConnectionStrings:CoffeeShop is required.");
-    builder.Services.AddCoffeeShopInfrastructure(connectionString);
+    builder.Services.AddCounterModule(connectionString);
+    builder.Services.AddBaristaModule(connectionString);
+    builder.Services.AddKitchenModule(connectionString);
+    builder.Services.AddSingleton(new PostgreSqlReadinessHealthCheck(connectionString));
     healthChecks.AddCheck<PostgreSqlReadinessHealthCheck>(
         "postgresql",
         tags: ["ready"]);
@@ -64,9 +68,9 @@ app.MapHub<OrderUpdatesHub>("/message");
 
 if (!app.Environment.IsEnvironment("Testing"))
 {
-    await using var scope = app.Services.CreateAsyncScope();
-    var dbContext = scope.ServiceProvider.GetRequiredService<CoffeeShopDbContext>();
-    await dbContext.Database.MigrateAsync();
+    await app.Services.MigrateCounterModuleAsync();
+    await app.Services.MigrateBaristaModuleAsync();
+    await app.Services.MigrateKitchenModuleAsync();
 }
 
 app.Run();

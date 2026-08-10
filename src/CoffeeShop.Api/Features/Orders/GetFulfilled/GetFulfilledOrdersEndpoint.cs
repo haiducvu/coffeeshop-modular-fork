@@ -1,5 +1,4 @@
-using CoffeeShop.Application.Orders.GetFulfilled;
-using MediatR;
+using CoffeeShop.Modules.Counter;
 
 namespace CoffeeShop.Api.Features.Orders.GetFulfilled;
 
@@ -12,12 +11,10 @@ public static class GetFulfilledOrdersEndpoint
     }
 
     private static async Task<IResult> Handle(
-        ISender sender,
+        ICounterModule counterModule,
         CancellationToken cancellationToken)
     {
-        var response = await sender.Send(
-            new GetFulfilledOrdersQuery(),
-            cancellationToken);
+        var response = await counterModule.GetFulfilledOrdersAsync(cancellationToken);
 
         return Results.Ok(response);
     }

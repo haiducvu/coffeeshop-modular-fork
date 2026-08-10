@@ -31,6 +31,18 @@ Dọn containers và database volume local:
 docker compose down --volumes
 ```
 
+## Bắt đầu Phase 2
+
+Lesson 13 tách Counter, Barista và Kitchen thành các deep module có schema/migration riêng. Đây là phase-boundary reset của learning environment, vì vậy hãy xóa volume Phase 1 trước lần chạy đầu tiên:
+
+```bash
+docker compose down --volumes
+docker compose up -d --build postgres api signalr-client
+./scripts/phase-1-smoke.sh
+```
+
+Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên database mới. Volume reset không đại diện cho data-migration strategy của production.
+
 ## Lộ trình
 
 - Phase 1 — dựng lại behavior gốc: Lessons 01–12.
@@ -52,6 +64,7 @@ docker compose down --volumes
 - [Lesson 10 — Typed SignalR updates và TypeScript client](docs/lessons/10-signalr-client.md)
 - [Lesson 11 — Data generator hữu hạn và deterministic](docs/lessons/11-data-generator.md)
 - [Lesson 12 — Docker Compose và Phase 1 smoke test](docs/lessons/12-docker-compose.md)
+- [Lesson 13 — Tách business modules và schema ownership](docs/lessons/13-module-assemblies.md)
 
 ## Nhánh Git
 

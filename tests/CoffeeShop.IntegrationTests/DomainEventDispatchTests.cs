@@ -1,12 +1,11 @@
-using CoffeeShop.Application.Common.Events;
-using CoffeeShop.Domain.Common;
-using CoffeeShop.Domain.Menu;
-using CoffeeShop.Domain.Orders;
-using CoffeeShop.Domain.Orders.Events;
-using CoffeeShop.Infrastructure.Events;
-using CoffeeShop.Infrastructure.Persistence;
-using MediatR;
+using CoffeeShop.Api.Events;
+using CoffeeShop.Contracts.Menu;
+using CoffeeShop.Contracts.Orders;
+using CoffeeShop.Modules.Counter.Domain.Orders;
+using CoffeeShop.Modules.Counter.Infrastructure.Persistence;
+using CoffeeShop.SharedKernel.Events;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CoffeeShop.IntegrationTests;
 
@@ -16,7 +15,7 @@ public sealed class DomainEventDispatchTests(PostgreSqlFixture fixture)
     [Fact]
     public async Task Save_dispatches_after_persistence_and_clears_events_once()
     {
-        await using var dbContext = CoffeeShopDbContext.Create(fixture.ConnectionString);
+        await using var dbContext = CounterDbContext.Create(fixture.ConnectionString);
         await dbContext.Database.MigrateAsync();
         var dispatcher = new RecordingDomainEventDispatcher(dbContext);
         var repository = new EfOrderRepository(dbContext, dispatcher);
@@ -40,10 +39,13 @@ public sealed class DomainEventDispatchTests(PostgreSqlFixture fixture)
     }
 
     [Fact]
-    public async Task MediatR_adapter_wraps_framework_free_events_in_typed_notifications()
+    public async Task Service_provider_adapter_invokes_typed_domain_event_handlers()
     {
-        var publisher = new RecordingPublisher();
-        var dispatcher = new MediatRDomainEventDispatcher(publisher);
+        var handler = new RecordingDomainEventHandler();
+        var services = new ServiceCollection();
+        services.AddSingleton<IDomainEventHandler<OrderItemAccepted>>(handler);
+        await using var provider = services.BuildServiceProvider();
+        var dispatcher = new ServiceProviderDomainEventDispatcher(provider);
         var domainEvent = new OrderItemAccepted(
             Guid.NewGuid(),
             Guid.NewGuid(),
@@ -52,12 +54,10 @@ public sealed class DomainEventDispatchTests(PostgreSqlFixture fixture)
 
         await dispatcher.DispatchAsync([domainEvent], CancellationToken.None);
 
-        var notification = Assert.IsType<DomainEventNotification<OrderItemAccepted>>(
-            Assert.Single(publisher.Notifications));
-        Assert.Same(domainEvent, notification.DomainEvent);
+        Assert.Same(domainEvent, Assert.Single(handler.Events));
     }
 
-    private sealed class RecordingDomainEventDispatcher(CoffeeShopDbContext dbContext)
+    private sealed class RecordingDomainEventDispatcher(CounterDbContext dbContext)
         : IDomainEventDispatcher
     {
         public List<IDomainEvent> Events { get; } = [];
@@ -77,24 +77,16 @@ public sealed class DomainEventDispatchTests(PostgreSqlFixture fixture)
         }
     }
 
-    private sealed class RecordingPublisher : IPublisher
+    private sealed class RecordingDomainEventHandler
+        : IDomainEventHandler<OrderItemAccepted>
     {
-        public List<object> Notifications { get; } = [];
+        public List<OrderItemAccepted> Events { get; } = [];
 
-        public Task Publish(
-            object notification,
-            CancellationToken cancellationToken = default)
+        public Task HandleAsync(
+            OrderItemAccepted domainEvent,
+            CancellationToken cancellationToken)
         {
-            Notifications.Add(notification);
-            return Task.CompletedTask;
-        }
-
-        public Task Publish<TNotification>(
-            TNotification notification,
-            CancellationToken cancellationToken = default)
-            where TNotification : INotification
-        {
-            Notifications.Add(notification);
+            Events.Add(domainEvent);
             return Task.CompletedTask;
         }
     }

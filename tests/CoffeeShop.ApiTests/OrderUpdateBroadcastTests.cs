@@ -1,8 +1,6 @@
 using CoffeeShop.Api.Realtime;
-using CoffeeShop.Application.Common.Events;
-using CoffeeShop.Domain.Menu;
-using CoffeeShop.Domain.Orders;
-using CoffeeShop.Domain.Orders.Events;
+using CoffeeShop.Contracts.Menu;
+using CoffeeShop.Contracts.Orders;
 using Microsoft.AspNetCore.SignalR;
 
 namespace CoffeeShop.ApiTests;
@@ -23,9 +21,7 @@ public sealed class OrderUpdateBroadcastTests
             ItemType.Cappuccino,
             PreparationStation.Barista);
 
-        await publisher.Handle(
-            new DomainEventNotification<OrderItemAccepted>(accepted),
-            CancellationToken.None);
+        await publisher.HandleAsync(accepted, CancellationToken.None);
 
         var message = Assert.Single(client.Messages);
         Assert.Equal(accepted.OrderId, message.OrderId);
@@ -52,9 +48,7 @@ public sealed class OrderUpdateBroadcastTests
             "kitchen",
             DateTimeOffset.Parse("2026-08-09T10:00:07Z"));
 
-        await publisher.Handle(
-            new DomainEventNotification<OrderUpdated>(updated),
-            CancellationToken.None);
+        await publisher.HandleAsync(updated, CancellationToken.None);
 
         var message = Assert.Single(client.Messages);
         Assert.Equal("Fulfilled", message.ItemStatus);
