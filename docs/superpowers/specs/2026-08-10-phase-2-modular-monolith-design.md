@@ -112,9 +112,12 @@ public interface ICounterModule
 public static IServiceCollection AddCounterModule(
     this IServiceCollection services,
     string connectionString);
+
+public static IServiceCollection AddCounterModuleForTesting(
+    this IServiceCollection services);
 ```
 
-Handlers, repositories, `DbContext`, and EF entities are implementation details. API transport DTOs map to module input/output records.
+Handlers, repositories, `DbContext`, and EF entities are implementation details. API transport DTOs map to module input/output records. The explicit testing registration uses an in-memory adapter so API tests do not need Docker; production cannot select it accidentally from configuration.
 
 ### 5.4 Barista and Kitchen
 
