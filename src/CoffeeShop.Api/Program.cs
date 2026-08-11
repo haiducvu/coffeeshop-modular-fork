@@ -1,4 +1,5 @@
 using CoffeeShop.Api.Events;
+using CoffeeShop.Api.Errors;
 using CoffeeShop.Api.Features.Orders.GetFulfilled;
 using CoffeeShop.Api.Features.Orders.PlaceOrder;
 using CoffeeShop.Api.Features.Orders.V2;
@@ -15,6 +16,8 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddLogging();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<CoffeeShopExceptionHandler>();
 var healthChecks = builder.Services.AddHealthChecks();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IPreparationDelay, TaskPreparationDelay>();
@@ -53,6 +56,7 @@ else
 
 var app = builder.Build();
 
+app.UseExceptionHandler();
 app.UseCors(clientCorsPolicy);
 app.MapGet("/", () => "Hello World!");
 app.MapHealthChecks("/health/live", new HealthCheckOptions

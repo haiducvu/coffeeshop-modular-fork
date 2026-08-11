@@ -1,3 +1,4 @@
+using CoffeeShop.Api.Errors;
 using CoffeeShop.Modules.Counter;
 using Microsoft.AspNetCore.Http.HttpResults;
 
@@ -11,7 +12,7 @@ public static class GetOrderEndpoint
         return endpoints;
     }
 
-    private static async Task<Results<Ok<OrderResourceResponse>, NotFound>> Handle(
+    private static async Task<Ok<OrderResourceResponse>> Handle(
         Guid orderId,
         ICounterModule counterModule,
         CancellationToken cancellationToken)
@@ -19,7 +20,7 @@ public static class GetOrderEndpoint
         var order = await counterModule.GetOrderAsync(orderId, cancellationToken);
         if (order is null)
         {
-            return TypedResults.NotFound();
+            throw new OrderNotFoundException(orderId);
         }
 
         var path = $"/v2/orders/{order.OrderId}";
