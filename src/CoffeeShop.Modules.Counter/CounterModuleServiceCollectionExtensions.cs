@@ -1,4 +1,5 @@
 using CoffeeShop.Contracts.Orders;
+using CoffeeShop.Modules.Counter.Application.GetOrder;
 using CoffeeShop.Modules.Counter.Application.Orders;
 using CoffeeShop.Modules.Counter.Application.Orders.GetFulfilled;
 using CoffeeShop.Modules.Counter.Application.Orders.PlaceOrder;
@@ -66,6 +67,7 @@ public static class CounterModuleServiceCollectionExtensions
         services.AddScoped<IValidator<PlaceOrderInput>, PlaceOrderValidator>();
         services.AddScoped<PlaceOrderHandler>();
         services.AddScoped<GetFulfilledOrdersHandler>();
+        services.AddScoped<GetOrderHandler>();
         services.AddScoped<IDomainEventHandler<OrderItemPrepared>, HandleOrderItemPrepared>();
         services.AddScoped<ICounterModule, CounterModule>();
     }

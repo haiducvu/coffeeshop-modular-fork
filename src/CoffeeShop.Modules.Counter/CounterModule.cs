@@ -1,3 +1,4 @@
+using CoffeeShop.Modules.Counter.Application.GetOrder;
 using CoffeeShop.Modules.Counter.Application.Orders.GetFulfilled;
 using CoffeeShop.Modules.Counter.Application.Orders.PlaceOrder;
 using FluentValidation;
@@ -11,6 +12,10 @@ public interface ICounterModule
         CancellationToken cancellationToken);
 
     Task<IReadOnlyList<FulfilledOrder>> GetFulfilledOrdersAsync(
+        CancellationToken cancellationToken);
+
+    Task<OrderDetails?> GetOrderAsync(
+        Guid orderId,
         CancellationToken cancellationToken);
 }
 
@@ -39,7 +44,8 @@ public sealed record FulfilledOrderLineItem(
 internal sealed class CounterModule(
     IValidator<PlaceOrderInput> validator,
     PlaceOrderHandler placeOrderHandler,
-    GetFulfilledOrdersHandler getFulfilledOrdersHandler) : ICounterModule
+    GetFulfilledOrdersHandler getFulfilledOrdersHandler,
+    GetOrderHandler getOrderHandler) : ICounterModule
 {
     public async Task<PlaceOrderResult> PlaceOrderAsync(
         PlaceOrderInput input,
@@ -52,4 +58,9 @@ internal sealed class CounterModule(
     public Task<IReadOnlyList<FulfilledOrder>> GetFulfilledOrdersAsync(
         CancellationToken cancellationToken) =>
         getFulfilledOrdersHandler.HandleAsync(cancellationToken);
+
+    public Task<OrderDetails?> GetOrderAsync(
+        Guid orderId,
+        CancellationToken cancellationToken) =>
+        getOrderHandler.HandleAsync(orderId, cancellationToken);
 }

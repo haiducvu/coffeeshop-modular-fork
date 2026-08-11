@@ -1,6 +1,7 @@
 using CoffeeShop.Api.Events;
 using CoffeeShop.Api.Features.Orders.GetFulfilled;
 using CoffeeShop.Api.Features.Orders.PlaceOrder;
+using CoffeeShop.Api.Features.Orders.V2;
 using CoffeeShop.Api.Health;
 using CoffeeShop.Api.Realtime;
 using CoffeeShop.Api.Time;
@@ -64,6 +65,8 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 });
 app.MapPlaceOrder();
 app.MapGetFulfilledOrders();
+app.MapCreateOrderV2();
+app.MapGetOrderV2();
 app.MapHub<OrderUpdatesHub>("/message");
 
 if (!app.Environment.IsEnvironment("Testing"))

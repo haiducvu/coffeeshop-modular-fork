@@ -66,6 +66,7 @@ Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên data
 - [Lesson 12 — Docker Compose và Phase 1 smoke test](docs/lessons/12-docker-compose.md)
 - [Lesson 13 — Tách business modules và schema ownership](docs/lessons/13-module-assemblies.md)
 - [Lesson 14 — Architecture tests cho module boundary](docs/lessons/14-architecture-tests.md)
+- [Lesson 15 — Resource-oriented order API](docs/lessons/15-resource-oriented-api.md)
 
 ## Nhánh Git
 
