@@ -3,19 +3,128 @@
 set -eu
 
 request_url=""
-for argument in "$@"; do
-  request_url="$argument"
+authorization=""
+username=""
+method="GET"
+has_data=false
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --request)
+      method="$2"
+      shift
+      ;;
+    --header)
+      case "$2" in
+        "Authorization: Bearer "*) authorization="${2#Authorization: Bearer }" ;;
+      esac
+      shift
+      ;;
+    --data|--data-urlencode)
+      has_data=true
+      case "$2" in
+        username=*) username="${2#username=}" ;;
+      esac
+      shift
+      ;;
+    --connect-timeout|--max-time)
+      shift
+      ;;
+    --fail|--silent|--show-error)
+      ;;
+    *)
+      request_url="$1"
+      ;;
+  esac
+  shift
 done
+
+if [ "$method" = "GET" ] && [ "$has_data" = true ]; then
+  method="POST"
+fi
+
+actor="anonymous"
+case "$authorization" in
+  controlled-lesson18-customer) actor="customer" ;;
+  controlled-lesson18-fulfillment-reader) actor="fulfillment-reader" ;;
+  controlled-lesson18-operator) actor="operator" ;;
+esac
+
+trace() {
+  if [ -n "${FAKE_CURL_TRACE:-}" ]; then
+    printf '%s\n' "$1" >> "$FAKE_CURL_TRACE"
+  fi
+}
+
+reject() {
+  echo "Fake authorization matrix rejected request." >&2
+  exit 22
+}
+
+require_request() {
+  expected_method="$1"
+  expected_actor="$2"
+  trace_name="$3"
+  if [ "$method" != "$expected_method" ] || [ "$actor" != "$expected_actor" ]; then
+    reject
+  fi
+  trace "${method} ${trace_name} ${actor}"
+}
 
 case "$request_url" in
   */.well-known/openid-configuration)
+    if [ "${FAKE_CURL_FAIL_DISCOVERY:-}" = true ]; then
+      exit 22
+    fi
+    require_request GET anonymous discovery
     printf '%s' '{"token_endpoint":"http://identity.test/realms/coffeeshop/protocol/openid-connect/token"}'
     ;;
   */protocol/openid-connect/token)
-    printf '%s' '{"access_token":"controlled-test-token"}'
+    case "$username" in
+      lesson18-customer) token_actor="customer" ;;
+      lesson18-fulfillment-reader) token_actor="fulfillment-reader" ;;
+      lesson18-operator) token_actor="operator" ;;
+      *) reject ;;
+    esac
+    if [ "$method" != POST ] || [ "$actor" != anonymous ]; then
+      reject
+    fi
+    if [ "$token_actor" != "${username#lesson18-}" ]; then
+      reject
+    fi
+    trace "POST token ${token_actor}"
+    printf '{"access_token":"controlled-%s"}' "$username"
     ;;
   */v2/authentication)
-    printf '%s' "${FAKE_IDENTITY_RESPONSE:?FAKE_IDENTITY_RESPONSE is required}"
+    case "$actor" in customer|fulfillment-reader|operator) ;; *) reject ;; esac
+    require_request GET "$actor" authentication
+    if [ -n "${FAKE_IDENTITY_RESPONSE:-}" ]; then
+      printf '%s' "$FAKE_IDENTITY_RESPONSE"
+    else
+      case "$authorization" in
+        *lesson18-customer*) printf '%s' '{"subject":"3fa85f64-5717-4562-b3fc-2c963f66afa6","roles":["customer"]}' ;;
+        *lesson18-fulfillment-reader*) printf '%s' '{"subject":"c0a80137-6c8d-4c2a-9860-322e5f32de31","roles":["fulfillment-reader"]}' ;;
+        *lesson18-operator*) printf '%s' '{"subject":"ae28f5c2-1054-4f8d-9e04-e0edacba1f10","roles":["operator"]}' ;;
+        *) printf '%s' '{"subject":"unknown","roles":[]}' ;;
+      esac
+    fi
+    ;;
+  */v2/orders)
+    require_request POST customer orders
+    printf '%s' '{"orderId":"7a97d7bf-f7e3-4294-9d5c-b95b957342c5"}'
+    ;;
+  */v2/orders/*)
+    case "$actor" in customer|operator) ;; *) reject ;; esac
+    require_request GET "$actor" order
+    printf '%s' '[]'
+    ;;
+  */v2/operations/orders/*)
+    require_request GET operator operations-order
+    printf '%s' '[]'
+    ;;
+  */v2/fulfillment-orders)
+    require_request GET fulfillment-reader fulfillment-orders
+    printf '%s' '[]'
     ;;
   *)
     echo "Unexpected fake curl URL: $request_url" >&2

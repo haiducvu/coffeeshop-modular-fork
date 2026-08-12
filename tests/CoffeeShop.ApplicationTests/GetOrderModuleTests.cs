@@ -25,6 +25,7 @@ public sealed class GetOrderModuleTests
 
         var order = Assert.IsType<OrderDetails>(result);
         Assert.Equal(placedOrder.OrderId, order.OrderId);
+        Assert.Equal(Guid.Parse("3fa85f64-5717-4562-b3fc-2c963f66afa6"), order.LoyaltyMemberId);
         Assert.Equal("InProgress", order.Status);
     }
 }

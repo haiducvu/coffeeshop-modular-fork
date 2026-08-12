@@ -34,7 +34,12 @@ AUTHENTICATION_ENABLED=true docker compose --profile identity up -d --build post
 ./scripts/phase-2-identity-smoke.sh
 ```
 
-`lesson17-user` / `lesson17-local` và bootstrap admin credentials là dữ liệu local
+Từ Lesson 18, `/v2` chỉ được map khi authentication bật: customer tạo/đọc đơn mình,
+fulfillment-reader (hoặc operator) đọc queue, operator dùng operational routes và override
+ownership có kiểm soát. `/v1`, `/message`, health và DataGen tiếp tục public. Khi auth tắt,
+`/v2` trả `404` fail-closed, không tạo identity giả hay bypass policy.
+
+`lesson17-user` / `lesson17-local`, các identity Lesson 18 và bootstrap admin credentials là dữ liệu local
 không bí mật để học và smoke test; không tái sử dụng trong production. Khi auth tắt,
 host không tạo identity giả và toàn bộ `/v1`, `/message`, DataGen vẫn public như Phase 1.
 
@@ -82,6 +87,7 @@ Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên data
 - [Lesson 15 — Resource-oriented order API](docs/lessons/15-resource-oriented-api.md)
 - [Lesson 16 — Chuẩn hóa API failures bằng Problem Details](docs/lessons/16-problem-details.md)
 - [Lesson 17 — Xác thực API client bằng JWT Bearer](docs/lessons/17-jwt-authentication.md)
+- [Lesson 18 — Phân quyền thao tác bằng policy](docs/lessons/18-policy-authorization.md)
 
 ## Nhánh Git
 

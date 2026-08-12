@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using CoffeeShop.Api.Errors;
+using CoffeeShop.ApiTests.Authentication;
 using FluentValidation;
 using FluentValidation.Results;
 
@@ -14,6 +15,7 @@ public sealed class ProblemDetailsTests : IClassFixture<CoffeeShopApiFactory>
     public ProblemDetailsTests(CoffeeShopApiFactory factory)
     {
         _client = factory.CreateClient();
+        _client.DefaultRequestHeaders.Authorization = CustomerAuthorization;
     }
 
     [Fact]
@@ -50,6 +52,7 @@ public sealed class ProblemDetailsTests : IClassFixture<CoffeeShopApiFactory>
         using var factory = new ThrowingCounterModuleFactory(
             new OrderNotFoundException(Guid.Parse("00000000-0000-0000-0000-000000000000")));
         using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = CustomerAuthorization;
 
         using var response = await client.GetAsync(
             "/v2/orders/00000000-0000-0000-0000-000000000000");
@@ -64,6 +67,7 @@ public sealed class ProblemDetailsTests : IClassFixture<CoffeeShopApiFactory>
         using var factory = new ThrowingCounterModuleFactory(
             new OrderConcurrencyException("Concurrent write conflict."));
         using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = CustomerAuthorization;
 
         using var response = await client.PostAsJsonAsync("/v2/orders", new
         {
@@ -89,6 +93,7 @@ public sealed class ProblemDetailsTests : IClassFixture<CoffeeShopApiFactory>
         ]);
         using var factory = new ThrowingCounterModuleFactory(validationException);
         using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = CustomerAuthorization;
 
         using var response = await client.PostAsJsonAsync("/v2/orders", new
         {
@@ -133,6 +138,10 @@ public sealed class ProblemDetailsTests : IClassFixture<CoffeeShopApiFactory>
             errors.EnumerateObject(),
             error => Assert.NotEmpty(error.Value.EnumerateArray()));
     }
+
+    private static readonly System.Net.Http.Headers.AuthenticationHeaderValue CustomerAuthorization =
+        System.Net.Http.Headers.AuthenticationHeaderValue.Parse(
+            TestAuthenticationHandler.CustomerAuthorizationValue);
 
     private static async Task AssertProblemAsync(
         HttpResponseMessage response,

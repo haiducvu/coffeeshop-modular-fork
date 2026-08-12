@@ -12,6 +12,6 @@ internal sealed class GetOrderHandler(IOrderRepository repository)
 
         return order is null
             ? null
-            : new OrderDetails(order.Id, order.Status.ToString());
+            : new OrderDetails(order.Id, order.LoyaltyMemberId, order.Status.ToString());
     }
 }

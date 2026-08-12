@@ -1,10 +1,13 @@
 using System.Security.Claims;
+using CoffeeShop.Api.Authorization;
 using CoffeeShop.Api.Authentication;
 using CoffeeShop.Api.Events;
 using CoffeeShop.Api.Errors;
 using CoffeeShop.Api.Features.Orders.GetFulfilled;
 using CoffeeShop.Api.Features.Orders.PlaceOrder;
 using CoffeeShop.Api.Features.Orders.V2;
+using CoffeeShop.Api.Features.Fulfillment.V2;
+using CoffeeShop.Api.Features.Operations.V2;
 using CoffeeShop.Api.Health;
 using CoffeeShop.Api.Realtime;
 using CoffeeShop.Api.Time;
@@ -21,6 +24,10 @@ builder.Services.AddLogging();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<CoffeeShopExceptionHandler>();
 var authenticationEnabled = builder.Services.AddCoffeeShopAuthentication(builder.Configuration);
+if (authenticationEnabled)
+{
+    builder.Services.AddCoffeeShopAuthorization();
+}
 var healthChecks = builder.Services.AddHealthChecks();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IPreparationDelay, TaskPreparationDelay>();
@@ -77,8 +84,13 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 });
 app.MapPlaceOrder();
 app.MapGetFulfilledOrders();
-app.MapCreateOrderV2();
-app.MapGetOrderV2();
+if (authenticationEnabled)
+{
+    app.MapCreateOrderV2();
+    app.MapGetOrderV2();
+    app.MapGetFulfillmentOrdersV2();
+    app.MapGetOperationsOrderV2();
+}
 app.MapHub<OrderUpdatesHub>("/message");
 if (authenticationEnabled)
 {

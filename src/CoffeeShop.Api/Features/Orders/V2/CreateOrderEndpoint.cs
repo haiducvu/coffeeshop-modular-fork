@@ -1,3 +1,4 @@
+using CoffeeShop.Api.Authorization;
 using CoffeeShop.Modules.Counter;
 using Microsoft.AspNetCore.Http.HttpResults;
 
@@ -7,7 +8,8 @@ public static class CreateOrderEndpoint
 {
     public static IEndpointRouteBuilder MapCreateOrderV2(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapPost("/v2/orders", Handle);
+        endpoints.MapPost("/v2/orders", Handle)
+            .RequireAuthorization(CoffeeShopPolicies.Customer);
         return endpoints;
     }
 

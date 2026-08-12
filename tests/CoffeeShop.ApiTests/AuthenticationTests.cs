@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using CoffeeShop.ApiTests.Authentication;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -74,6 +75,23 @@ public sealed class AuthenticationTests
         using var response = await client.GetAsync("/v2/authentication");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Real_jwt_realm_roles_are_mapped_once_to_standard_role_claims()
+    {
+        await using var factory = new RealJwtApiFactory();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new(
+            JwtBearerDefaults.AuthenticationScheme,
+            RealJwtApiFactory.CreateValidTokenWithRealmRoles("customer", "operator"));
+
+        using var response = await client.GetAsync("/v2/authentication");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var identity = await response.Content.ReadFromJsonAsync<AuthenticationResponse>();
+        Assert.NotNull(identity);
+        Assert.Equal(["customer", "operator"], identity.Roles);
     }
 
     [Fact]
@@ -180,6 +198,12 @@ public sealed class AuthenticationTests
             new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc),
             new DateTime(2099, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 
+        internal static string CreateValidTokenWithRealmRoles(params string[] roles) => CreateToken(
+            TrustedSigningKey,
+            new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2099, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            claims: [new Claim("realm_access", JsonSerializer.Serialize(new { roles }))]);
+
         internal static string CreateTokenWithInvalidSignature() => CreateToken(
             UntrustedSigningKey,
             new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc),
@@ -225,12 +249,13 @@ public sealed class AuthenticationTests
             DateTime notBefore,
             DateTime expires,
             string issuer = Issuer,
-            string audience = Audience)
+            string audience = Audience,
+            IEnumerable<Claim>? claims = null)
         {
             var token = new JwtSecurityToken(
                 issuer: issuer,
                 audience: audience,
-                claims: [new Claim("sub", "real-jwt-user")],
+                claims: [new Claim("sub", "real-jwt-user"), .. (claims ?? [])],
                 notBefore: notBefore,
                 expires: expires,
                 signingCredentials: new SigningCredentials(

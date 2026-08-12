@@ -2,9 +2,12 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using CoffeeShop.Api.Errors;
+using CoffeeShop.ApiTests.Authentication;
 using CoffeeShop.Modules.Counter;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -21,6 +24,7 @@ public sealed class UnexpectedFailureTests
         using var factory = new ThrowingCounterModuleFactory(
             new InvalidOperationException(sensitiveMessage));
         using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = CustomerAuthorization;
 
         using var response = await client.PostAsJsonAsync("/v2/orders", ValidOrderRequest());
 
@@ -51,6 +55,7 @@ public sealed class UnexpectedFailureTests
         var logCapture = new LogCapture();
         using var factory = new ThrowingCounterModuleFactory(failure, logCapture);
         using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = CustomerAuthorization;
 
         using var response = await client.PostAsJsonAsync("/v2/orders", ValidOrderRequest());
 
@@ -74,6 +79,10 @@ public sealed class UnexpectedFailureTests
         baristaItems = new[] { 0 },
         kitchenItems = new[] { 6 }
     };
+
+    private static readonly System.Net.Http.Headers.AuthenticationHeaderValue CustomerAuthorization =
+        System.Net.Http.Headers.AuthenticationHeaderValue.Parse(
+            TestAuthenticationHandler.CustomerAuthorizationValue);
 }
 
 internal sealed class ThrowingCounterModuleFactory(
@@ -83,8 +92,19 @@ internal sealed class ThrowingCounterModuleFactory(
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
-        builder.ConfigureServices(services =>
+        builder.UseSetting("Authentication:Enabled", "true");
+        builder.UseSetting("Authentication:Authority", "https://identity.test/realms/coffeeshop");
+        builder.UseSetting("Authentication:Audience", "coffeeshop-api");
+        builder.ConfigureTestServices(services =>
         {
+            services.AddAuthentication(options =>
+                {
+                    options.DefaultAuthenticateScheme = TestAuthenticationHandler.SchemeName;
+                    options.DefaultChallengeScheme = TestAuthenticationHandler.SchemeName;
+                })
+                .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
+                    TestAuthenticationHandler.SchemeName,
+                    _ => { });
             services.RemoveAll<ICounterModule>();
             services.AddSingleton<ICounterModule>(new ThrowingCounterModule(exception));
             if (logCapture is not null)

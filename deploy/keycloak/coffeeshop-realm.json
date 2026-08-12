@@ -4,7 +4,10 @@
   "roles": {
     "realm": [
       { "name": "barista" },
-      { "name": "manager" }
+      { "name": "manager" },
+      { "name": "customer" },
+      { "name": "fulfillment-reader" },
+      { "name": "operator" }
     ]
   },
   "clients": [
@@ -56,6 +59,57 @@
         }
       ],
       "realmRoles": ["barista", "manager"]
+    },
+    {
+      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "username": "lesson18-customer",
+      "enabled": true,
+      "email": "lesson18-customer@example.invalid",
+      "emailVerified": true,
+      "firstName": "Lesson",
+      "lastName": "Eighteen Customer",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "lesson18-customer-local",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["customer"]
+    },
+    {
+      "id": "c0a80137-6c8d-4c2a-9860-322e5f32de31",
+      "username": "lesson18-fulfillment-reader",
+      "enabled": true,
+      "email": "lesson18-fulfillment-reader@example.invalid",
+      "emailVerified": true,
+      "firstName": "Lesson",
+      "lastName": "Eighteen Fulfillment Reader",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "lesson18-fulfillment-reader-local",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["fulfillment-reader"]
+    },
+    {
+      "id": "ae28f5c2-1054-4f8d-9e04-e0edacba1f10",
+      "username": "lesson18-operator",
+      "enabled": true,
+      "email": "lesson18-operator@example.invalid",
+      "emailVerified": true,
+      "firstName": "Lesson",
+      "lastName": "Eighteen Operator",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "lesson18-operator-local",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["operator"]
     }
   ]
 }

@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Net.Http.Headers;
+using CoffeeShop.ApiTests.Authentication;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace CoffeeShop.ApiTests;
@@ -12,6 +14,8 @@ public sealed class V2OrderContractTests : IClassFixture<CoffeeShopApiFactory>
     public V2OrderContractTests(CoffeeShopApiFactory factory)
     {
         _client = factory.CreateClient();
+        _client.DefaultRequestHeaders.Authorization = AuthenticationHeaderValue.Parse(
+            TestAuthenticationHandler.CustomerAuthorizationValue);
     }
 
     [Fact]
