@@ -25,6 +25,19 @@ Client chạy tại <http://localhost:5173>. DataGen là profile opt-in:
 docker compose --profile demo run --rm datagen
 ```
 
+JWT Bearer authentication cũng là opt-in. Profile `identity` chạy Keycloak local,
+mount realm import read-only và chỉ publish Keycloak trên loopback. Identity smoke cần
+Docker Compose, `curl` và `jq` trên host:
+
+```bash
+AUTHENTICATION_ENABLED=true docker compose --profile identity up -d --build postgres keycloak api
+./scripts/phase-2-identity-smoke.sh
+```
+
+`lesson17-user` / `lesson17-local` và bootstrap admin credentials là dữ liệu local
+không bí mật để học và smoke test; không tái sử dụng trong production. Khi auth tắt,
+host không tạo identity giả và toàn bộ `/v1`, `/message`, DataGen vẫn public như Phase 1.
+
 Dọn containers và database volume local:
 
 ```bash
@@ -68,6 +81,7 @@ Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên data
 - [Lesson 14 — Architecture tests cho module boundary](docs/lessons/14-architecture-tests.md)
 - [Lesson 15 — Resource-oriented order API](docs/lessons/15-resource-oriented-api.md)
 - [Lesson 16 — Chuẩn hóa API failures bằng Problem Details](docs/lessons/16-problem-details.md)
+- [Lesson 17 — Xác thực API client bằng JWT Bearer](docs/lessons/17-jwt-authentication.md)
 
 ## Nhánh Git
 

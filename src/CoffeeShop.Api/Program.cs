@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using CoffeeShop.Api.Authentication;
 using CoffeeShop.Api.Events;
 using CoffeeShop.Api.Errors;
 using CoffeeShop.Api.Features.Orders.GetFulfilled;
@@ -18,6 +20,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddLogging();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<CoffeeShopExceptionHandler>();
+var authenticationEnabled = builder.Services.AddCoffeeShopAuthentication(builder.Configuration);
 var healthChecks = builder.Services.AddHealthChecks();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IPreparationDelay, TaskPreparationDelay>();
@@ -58,6 +61,11 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseCors(clientCorsPolicy);
+if (authenticationEnabled)
+{
+    app.UseAuthentication();
+    app.UseAuthorization();
+}
 app.MapGet("/", () => "Hello World!");
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
@@ -72,6 +80,26 @@ app.MapGetFulfilledOrders();
 app.MapCreateOrderV2();
 app.MapGetOrderV2();
 app.MapHub<OrderUpdatesHub>("/message");
+if (authenticationEnabled)
+{
+    app.MapGet("/v2/authentication", (ClaimsPrincipal user) => new
+        {
+            Subject = user.FindFirstValue("sub"),
+            Scopes = user.FindAll("scope")
+                .SelectMany(claim => claim.Value.Split(
+                    ' ',
+                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+                .ToArray(),
+            Roles = user.FindAll(ClaimTypes.Role)
+                .Select(claim => claim.Value)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+                .ToArray()
+        })
+        .RequireAuthorization();
+}
 
 if (!app.Environment.IsEnvironment("Testing"))
 {

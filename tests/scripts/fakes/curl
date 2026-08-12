@@ -1,0 +1,24 @@
+#!/bin/sh
+
+set -eu
+
+request_url=""
+for argument in "$@"; do
+  request_url="$argument"
+done
+
+case "$request_url" in
+  */.well-known/openid-configuration)
+    printf '%s' '{"token_endpoint":"http://identity.test/realms/coffeeshop/protocol/openid-connect/token"}'
+    ;;
+  */protocol/openid-connect/token)
+    printf '%s' '{"access_token":"controlled-test-token"}'
+    ;;
+  */v2/authentication)
+    printf '%s' "${FAKE_IDENTITY_RESPONSE:?FAKE_IDENTITY_RESPONSE is required}"
+    ;;
+  *)
+    echo "Unexpected fake curl URL: $request_url" >&2
+    exit 2
+    ;;
+esac

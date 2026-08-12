@@ -26,6 +26,10 @@ services:
       ASPNETCORE_HTTP_PORTS: 8080
       ConnectionStrings__CoffeeShop: Host=postgres;Port=5432;Database=${POSTGRES_DB:-coffeeshop};Username=${POSTGRES_USER:-coffeeshop};Password=${POSTGRES_PASSWORD:-coffeeshop-local}
       ClientOrigin: http://localhost:${CLIENT_PORT:-5173}
+      Authentication__Enabled: ${AUTHENTICATION_ENABLED:-false}
+      Authentication__Authority: ${AUTHENTICATION_AUTHORITY:-http://keycloak:8080/realms/coffeeshop}
+      Authentication__Audience: ${AUTHENTICATION_AUDIENCE:-coffeeshop-api}
+      Authentication__RequireHttpsMetadata: ${AUTHENTICATION_REQUIRE_HTTPS_METADATA:-false}
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:
@@ -70,6 +74,31 @@ services:
       api:
         condition: service_healthy
     restart: "no"
+
+  keycloak:
+    profiles: ["identity"]
+    image: quay.io/keycloak/keycloak:26.5.2
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin-local}
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-18080}
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT:-18080}:8080"
+    volumes:
+      - ./deploy/keycloak/coffeeshop-realm.json:/opt/keycloak/data/import/coffeeshop-realm.json:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/8080 &&
+          printf 'GET /realms/coffeeshop/.well-known/openid-configuration HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          grep -q '200 OK' <&3
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
 
 volumes:
   postgres-data:

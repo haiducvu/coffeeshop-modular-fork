@@ -1,0 +1,61 @@
+{
+  "realm": "coffeeshop",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      { "name": "barista" },
+      { "name": "manager" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "coffeeshop-api",
+      "name": "CoffeeShop API local smoke client",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "coffeeshop-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "coffeeshop-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ],
+      "defaultClientScopes": [
+        "basic",
+        "profile",
+        "email",
+        "roles",
+        "web-origins"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "lesson17-user",
+      "enabled": true,
+      "email": "lesson17@example.invalid",
+      "emailVerified": true,
+      "firstName": "Lesson",
+      "lastName": "Seventeen",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "lesson17-local",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["barista", "manager"]
+    }
+  ]
+}
