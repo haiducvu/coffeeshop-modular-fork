@@ -55,7 +55,12 @@ else
 {
     var connectionString = builder.Configuration.GetConnectionString("CoffeeShop")
         ?? throw new InvalidOperationException("ConnectionStrings:CoffeeShop is required.");
-    builder.Services.AddCounterModule(connectionString);
+    var fulfillmentCacheTimeToLive = ParseFulfillmentCacheTimeToLive(
+        builder.Configuration["FulfillmentCache:TimeToLive"]);
+    builder.Services.AddCounterModule(
+        connectionString,
+        builder.Configuration.GetConnectionString("Redis"),
+        fulfillmentCacheTimeToLive);
     builder.Services.AddBaristaModule(connectionString);
     builder.Services.AddKitchenModule(connectionString);
     builder.Services.AddSingleton(new PostgreSqlReadinessHealthCheck(connectionString));
@@ -121,5 +126,21 @@ if (!app.Environment.IsEnvironment("Testing"))
 }
 
 app.Run();
+
+static TimeSpan? ParseFulfillmentCacheTimeToLive(string? configuredValue)
+{
+    if (string.IsNullOrWhiteSpace(configuredValue))
+    {
+        return null;
+    }
+
+    if (!TimeSpan.TryParse(configuredValue, out var timeToLive))
+    {
+        throw new InvalidOperationException(
+            "FulfillmentCache:TimeToLive must be a valid TimeSpan.");
+    }
+
+    return timeToLive;
+}
 
 public partial class Program;

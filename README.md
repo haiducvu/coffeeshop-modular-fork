@@ -15,7 +15,7 @@ dotnet test CoffeeShop.slnx --no-build
 ## Chạy toàn bộ Phase 1
 
 ```bash
-docker compose up -d --build postgres api signalr-client
+docker compose up -d --build postgres redis api signalr-client
 ./scripts/phase-1-smoke.sh
 ```
 
@@ -30,7 +30,7 @@ mount realm import read-only và chỉ publish Keycloak trên loopback. Identity
 Docker Compose, `curl` và `jq` trên host:
 
 ```bash
-AUTHENTICATION_ENABLED=true docker compose --profile identity up -d --build postgres keycloak api
+AUTHENTICATION_ENABLED=true docker compose --profile identity up -d --build postgres redis keycloak api
 ./scripts/phase-2-identity-smoke.sh
 ```
 
@@ -42,6 +42,14 @@ ownership có kiểm soát. `/v1`, `/message`, health và DataGen tiếp tục p
 `lesson17-user` / `lesson17-local`, các identity Lesson 18 và bootstrap admin credentials là dữ liệu local
 không bí mật để học và smoke test; không tái sử dụng trong production. Khi auth tắt,
 host không tạo identity giả và toàn bộ `/v1`, `/message`, DataGen vẫn public như Phase 1.
+
+Lesson 19 bổ sung Redis cho read model fulfillment theo cache-aside. Cache chỉ bật khi host cung cấp
+`ConnectionStrings__Redis`; không có cấu hình (bao gồm môi trường `Testing`) thì Counter tiếp tục đọc
+PostgreSQL trực tiếp. Compose khởi động `redis:8-alpine` trên loopback, API chờ Redis healthy và smoke
+kiểm tra key `fulfilled-orders:v1` sau khi fulfillment hoàn tất. TTL mặc định là một phút và được giới
+hạn từ 5 giây đến 1 giờ; có thể đặt bằng `FulfillmentCache__TimeToLive`. Cache miss và invalidation dùng
+một gate chung trong một API process để stale reader không ghi đè `DEL`; nhiều API replica cần distributed
+fencing/CAS riêng, ngoài phạm vi Lesson 19.
 
 Dọn containers và database volume local:
 
@@ -55,7 +63,7 @@ Lesson 13 tách Counter, Barista và Kitchen thành các deep module có schema/
 
 ```bash
 docker compose down --volumes
-docker compose up -d --build postgres api signalr-client
+docker compose up -d --build postgres redis api signalr-client
 ./scripts/phase-1-smoke.sh
 ```
 
@@ -88,6 +96,7 @@ Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên data
 - [Lesson 16 — Chuẩn hóa API failures bằng Problem Details](docs/lessons/16-problem-details.md)
 - [Lesson 17 — Xác thực API client bằng JWT Bearer](docs/lessons/17-jwt-authentication.md)
 - [Lesson 18 — Phân quyền thao tác bằng policy](docs/lessons/18-policy-authorization.md)
+- [Lesson 19 — Cache fulfillment read model với Redis](docs/lessons/19-redis-read-model-cache.md)
 
 ## Nhánh Git
 

@@ -1,6 +1,9 @@
 using CoffeeShop.Api.Events;
 using CoffeeShop.Contracts.Menu;
 using CoffeeShop.Contracts.Orders;
+using CoffeeShop.Modules.Counter;
+using CoffeeShop.Modules.Counter.Application.Fulfillment;
+using CoffeeShop.Modules.Counter.Infrastructure.Caching;
 using CoffeeShop.Modules.Counter.Domain.Orders;
 using CoffeeShop.Modules.Counter.Infrastructure.Persistence;
 using CoffeeShop.SharedKernel.Events;
@@ -57,6 +60,32 @@ public sealed class DomainEventDispatchTests(PostgreSqlFixture fixture)
         Assert.Same(domainEvent, Assert.Single(handler.Events));
     }
 
+    [Fact]
+    public async Task Fulfilled_update_invalidates_cache_after_the_counter_transaction_commits()
+    {
+        await using var dbContext = CounterDbContext.Create(fixture.ConnectionString);
+        await dbContext.Database.MigrateAsync();
+        var cache = new TrackingFulfillmentCache();
+        var dispatcher = new CacheInvalidatingDomainEventDispatcher(
+            fixture.ConnectionString,
+            new InvalidateFulfillmentCache(cache));
+        var repository = new EfOrderRepository(dbContext, dispatcher);
+        var order = Order.Place(
+            OrderSource.Counter,
+            Location.Atlanta,
+            Guid.NewGuid(),
+            [new ItemSelection(ItemType.Cappuccino, PreparationStation.Barista)]);
+        await repository.AddAsync(order, CancellationToken.None);
+        await repository.SaveChangesAsync(CancellationToken.None);
+        cache.HasValue = true;
+        order.CompleteItem(order.LineItems[0].Id, "barista", DateTimeOffset.UnixEpoch);
+
+        await repository.SaveChangesAsync(CancellationToken.None);
+
+        Assert.True(dispatcher.WasFulfilledOrderPersistedBeforeInvalidation);
+        Assert.False(cache.HasValue);
+    }
+
     private sealed class RecordingDomainEventDispatcher(CounterDbContext dbContext)
         : IDomainEventDispatcher
     {
@@ -87,6 +116,47 @@ public sealed class DomainEventDispatchTests(PostgreSqlFixture fixture)
             CancellationToken cancellationToken)
         {
             Events.Add(domainEvent);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class CacheInvalidatingDomainEventDispatcher(
+        string connectionString,
+        InvalidateFulfillmentCache invalidator) : IDomainEventDispatcher
+    {
+        public bool WasFulfilledOrderPersistedBeforeInvalidation { get; private set; }
+
+        public async Task DispatchAsync(
+            IReadOnlyCollection<IDomainEvent> events,
+            CancellationToken cancellationToken)
+        {
+            foreach (var updated in events.OfType<OrderUpdated>())
+            {
+                await using var verificationContext = CounterDbContext.Create(connectionString);
+                WasFulfilledOrderPersistedBeforeInvalidation = await verificationContext.Orders
+                    .AsNoTracking()
+                    .AnyAsync(
+                        order => order.Id == updated.OrderId
+                            && order.Status == OrderStatus.Fulfilled,
+                        cancellationToken);
+                await invalidator.HandleAsync(updated, cancellationToken);
+            }
+        }
+    }
+
+    private sealed class TrackingFulfillmentCache : IFulfillmentOrdersCache
+    {
+        public bool HasValue { get; set; }
+
+        public Task<IReadOnlyList<FulfilledOrder>?> GetAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<FulfilledOrder>?>(null);
+
+        public Task SetAsync(IReadOnlyList<FulfilledOrder> orders, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+        public Task RemoveAsync(CancellationToken cancellationToken)
+        {
+            HasValue = false;
             return Task.CompletedTask;
         }
     }

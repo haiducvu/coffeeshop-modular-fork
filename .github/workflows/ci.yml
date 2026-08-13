@@ -35,20 +35,20 @@ jobs:
         run: npm run build --prefix src/CoffeeShop.SignalRClient
       - name: Build container images
         run: docker compose --profile demo --profile identity build
-      - name: Run Phase 1 smoke test
+      - name: Run Redis-enabled Phase 1 smoke test
         run: |
           trap 'docker compose --profile demo --profile identity down --volumes --remove-orphans' EXIT
-          docker compose up -d postgres api signalr-client
+          docker compose up -d postgres redis api signalr-client
           ./scripts/phase-1-smoke.sh
       - name: Run identity smoke test
         run: |
           trap 'docker compose --profile identity down --volumes --remove-orphans' EXIT
           jq --version
           ./tests/scripts/phase-2-identity-smoke-tests.sh
-          AUTHENTICATION_ENABLED=true docker compose --profile identity up -d postgres keycloak api
+          AUTHENTICATION_ENABLED=true docker compose --profile identity up -d postgres redis keycloak api
           ./scripts/phase-2-identity-smoke.sh
       - name: Run one DataGen order
         run: |
           trap 'docker compose --profile demo down --volumes --remove-orphans' EXIT
-          docker compose up -d postgres api
+          docker compose up -d postgres redis api
           DATAGEN_ORDER_COUNT=1 docker compose --profile demo run --rm datagen

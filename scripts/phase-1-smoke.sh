@@ -12,9 +12,24 @@ loyalty_member_id="11111111-2222-3333-4444-${timestamp_hex}${process_hex}"
 
 diagnose_and_exit() {
   echo "Phase 1 smoke test failed: $1" >&2
-  docker compose ps >&2 || true
-  docker compose logs --tail=100 postgres api signalr-client >&2 || true
+  run_diagnostic docker compose ps
+  run_diagnostic docker compose logs --tail=100 postgres redis api signalr-client
   exit 1
+}
+
+run_diagnostic() {
+  "$@" >&2 &
+  diagnostic_pid=$!
+  while kill -0 "$diagnostic_pid" 2>/dev/null; do
+    diagnostic_remaining_seconds=$(( deadline - $(date +%s) ))
+    if [ "$diagnostic_remaining_seconds" -le 0 ]; then
+      kill "$diagnostic_pid" 2>/dev/null || true
+      wait "$diagnostic_pid" 2>/dev/null || true
+      return
+    fi
+    sleep 1
+  done
+  wait "$diagnostic_pid" 2>/dev/null || true
 }
 
 set_request_timeout() {
@@ -111,6 +126,10 @@ while :; do
 
   if printf '%s' "$fulfilled_orders" | grep -q "$loyalty_member_id" \
     && printf '%s' "$fulfilled_orders" | grep -q '"status":"Fulfilled"'; then
+    if ! docker compose exec -T redis redis-cli --raw EXISTS fulfilled-orders:v1 \
+      | grep -qx '1'; then
+      diagnose_and_exit "The Redis fulfillment cache did not contain the read model."
+    fi
     echo "Phase 1 smoke test passed: deterministic order was fulfilled."
     exit 0
   fi

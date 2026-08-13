@@ -8,6 +8,7 @@ internal sealed class RecordingOrderRepository : IOrderRepository
 {
     public List<Order> Orders { get; } = [];
     public int SaveChangesCallCount { get; private set; }
+    public int ListCallCount { get; private set; }
 
     public Task AddAsync(Order order, CancellationToken cancellationToken)
     {
@@ -22,6 +23,7 @@ internal sealed class RecordingOrderRepository : IOrderRepository
         ISpecification<Order> specification,
         CancellationToken cancellationToken)
     {
+        ListCallCount++;
         IReadOnlyList<Order> result = Orders.ToArray();
         return Task.FromResult(result);
     }
