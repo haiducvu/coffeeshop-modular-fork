@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using StackExchange.Redis;
+using System.Threading;
 
 namespace CoffeeShop.Modules.Counter;
 
@@ -38,8 +39,13 @@ public static class CounterModuleServiceCollectionExtensions
             redisOptions.ConnectTimeout = (int)FulfillmentCacheOptions.CommandTimeout.TotalMilliseconds;
             redisOptions.SyncTimeout = (int)FulfillmentCacheOptions.CommandTimeout.TotalMilliseconds;
             redisOptions.AsyncTimeout = (int)FulfillmentCacheOptions.CommandTimeout.TotalMilliseconds;
+            var sharedMultiplexer = new Lazy<IConnectionMultiplexer>(
+                () => ConnectionMultiplexer.Connect(redisOptions),
+                LazyThreadSafetyMode.ExecutionAndPublication);
+            services.AddSingleton(_ => sharedMultiplexer.Value);
             services.AddStackExchangeRedisCache(options =>
-                options.ConfigurationOptions = redisOptions);
+                options.ConnectionMultiplexerFactory = () =>
+                    Task.FromResult(sharedMultiplexer.Value));
             services.AddSingleton(cacheOptions);
             services.AddSingleton<FulfillmentCacheMetrics>();
             services.AddSingleton<IFulfillmentOrdersCache, RedisFulfillmentOrdersCache>();

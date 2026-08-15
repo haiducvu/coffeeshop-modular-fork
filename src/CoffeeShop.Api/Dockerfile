@@ -25,7 +25,7 @@ RUN dotnet publish src/CoffeeShop.Api/CoffeeShop.Api.csproj \
     /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS final
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl krb5-libs
 WORKDIR /app
 COPY --from=build /app/publish .
 USER $APP_UID

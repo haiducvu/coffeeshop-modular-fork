@@ -72,6 +72,10 @@ require_request() {
 }
 
 case "$request_url" in
+  */health/ready)
+    require_request GET anonymous readiness
+    printf '%s' '{"status":"Healthy","checks":[{"name":"identity-provider","status":"Healthy","durationMilliseconds":1},{"name":"postgresql","status":"Healthy","durationMilliseconds":1},{"name":"redis","status":"Healthy","durationMilliseconds":1}]}'
+    ;;
   */.well-known/openid-configuration)
     if [ "${FAKE_CURL_FAIL_DISCOVERY:-}" = true ]; then
       exit 22

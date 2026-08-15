@@ -33,6 +33,7 @@ assert_trace_matrix() {
   run_smoke '__dynamic__' "$trace_file"
 
   expected_trace='GET discovery anonymous
+GET readiness anonymous
 POST token customer
 GET authentication customer
 POST orders customer

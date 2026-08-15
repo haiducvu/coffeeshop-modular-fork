@@ -40,6 +40,7 @@ jobs:
           trap 'docker compose --profile demo --profile identity down --volumes --remove-orphans' EXIT
           docker compose up -d postgres redis api signalr-client
           ./scripts/phase-1-smoke.sh
+          ./scripts/phase-2-smoke.sh
       - name: Run identity smoke test
         run: |
           trap 'docker compose --profile identity down --volumes --remove-orphans' EXIT

@@ -17,6 +17,7 @@ dotnet test CoffeeShop.slnx --no-build
 ```bash
 docker compose up -d --build postgres redis api signalr-client
 ./scripts/phase-1-smoke.sh
+./scripts/phase-2-smoke.sh
 ```
 
 Client chạy tại <http://localhost:5173>. DataGen là profile opt-in:
@@ -50,6 +51,12 @@ kiểm tra key `fulfilled-orders:v1` sau khi fulfillment hoàn tất. TTL mặc 
 hạn từ 5 giây đến 1 giờ; có thể đặt bằng `FulfillmentCache__TimeToLive`. Cache miss và invalidation dùng
 một gate chung trong một API process để stale reader không ghi đè `DEL`; nhiều API replica cần distributed
 fencing/CAS riêng, ngoài phạm vi Lesson 19.
+
+Lesson 20 hoàn tất [checkpoint Phase 2](docs/checkpoints/phase-2.md) bằng newline-delimited JSON logs và
+health contract tách bạch: `/health/live` chỉ kiểm process; `/health/ready` kiểm PostgreSQL cùng Redis và
+OIDC discovery khi được bật. Readiness response chỉ công bố tên/status/duration. Redis probe tái sử dụng
+đúng shared multiplexer của cache, identity probe dùng named `HttpClient` có timeout ngắn. Xem
+[tài liệu Lesson 20](docs/lessons/20-operational-foundations.md) để hiểu startup validation và redaction.
 
 Dọn containers và database volume local:
 
@@ -97,6 +104,7 @@ Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên data
 - [Lesson 17 — Xác thực API client bằng JWT Bearer](docs/lessons/17-jwt-authentication.md)
 - [Lesson 18 — Phân quyền thao tác bằng policy](docs/lessons/18-policy-authorization.md)
 - [Lesson 19 — Cache fulfillment read model với Redis](docs/lessons/19-redis-read-model-cache.md)
+- [Lesson 20 — Structured logs và operational health](docs/lessons/20-operational-foundations.md)
 
 ## Nhánh Git
 

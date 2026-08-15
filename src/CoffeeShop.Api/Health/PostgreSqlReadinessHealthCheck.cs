@@ -6,6 +6,8 @@ namespace CoffeeShop.Api.Health;
 public sealed class PostgreSqlReadinessHealthCheck(string connectionString)
     : IHealthCheck
 {
+    private static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(2);
+
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
@@ -13,7 +15,8 @@ public sealed class PostgreSqlReadinessHealthCheck(string connectionString)
         try
         {
             await using var connection = new NpgsqlConnection(connectionString);
-            await connection.OpenAsync(cancellationToken);
+            await connection.OpenAsync(cancellationToken)
+                .WaitAsync(ConnectionTimeout, cancellationToken);
             return HealthCheckResult.Healthy("PostgreSQL is reachable.");
         }
         catch (Exception exception)

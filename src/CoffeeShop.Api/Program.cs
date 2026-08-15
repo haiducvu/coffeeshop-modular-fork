@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using CoffeeShop.Api.Authorization;
 using CoffeeShop.Api.Authentication;
+using CoffeeShop.Api.Configuration;
 using CoffeeShop.Api.Events;
 using CoffeeShop.Api.Errors;
 using CoffeeShop.Api.Features.Orders.GetFulfilled;
@@ -9,6 +10,7 @@ using CoffeeShop.Api.Features.Orders.V2;
 using CoffeeShop.Api.Features.Fulfillment.V2;
 using CoffeeShop.Api.Features.Operations.V2;
 using CoffeeShop.Api.Health;
+using CoffeeShop.Api.Logging;
 using CoffeeShop.Api.Realtime;
 using CoffeeShop.Api.Time;
 using CoffeeShop.Contracts.Orders;
@@ -18,9 +20,46 @@ using CoffeeShop.Modules.Kitchen;
 using CoffeeShop.SharedKernel.Events;
 using CoffeeShop.SharedKernel.Time;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Serilog;
+using Serilog.Core;
+using System.Diagnostics;
+using System.Text.Json;
 
+Log.Logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .Destructure.With(new SensitiveDataDestructuringPolicy())
+    .WriteTo.Console(new SensitiveDataDestructuringPolicy())
+    .CreateBootstrapLogger();
+
+try
+{
+    await RunApplicationAsync(args);
+}
+catch (Exception exception)
+{
+    Log.Fatal(exception, "CoffeeShop API terminated unexpectedly.");
+    throw;
+}
+finally
+{
+    Log.CloseAndFlush();
+}
+
+static async Task RunApplicationAsync(string[] args)
+{
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddLogging();
+builder.Logging.ClearProviders();
+var hostOptions = builder.Services.AddCoffeeShopHostOptions(
+    builder.Configuration,
+    requireDatabase: !builder.Environment.IsEnvironment("Testing"));
+builder.Services.AddSingleton<IDestructuringPolicy, SensitiveDataDestructuringPolicy>();
+builder.Services.AddSerilog((services, logger) => logger
+    .ReadFrom.Configuration(builder.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext(),
+    preserveStaticLogger: builder.Environment.IsEnvironment("Testing"),
+    writeToProviders: true);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<CoffeeShopExceptionHandler>();
 var authenticationEnabled = builder.Services.AddCoffeeShopAuthentication(builder.Configuration);
@@ -41,7 +80,7 @@ builder.Services.AddTransient<
     IDomainEventHandler<OrderUpdated>>(services =>
         services.GetRequiredService<SignalROrderUpdatePublisher>());
 const string clientCorsPolicy = "CoffeeShopClient";
-var clientOrigin = builder.Configuration["ClientOrigin"] ?? "http://localhost:5173";
+var clientOrigin = hostOptions.ClientOrigin;
 builder.Services.AddCors(options => options.AddPolicy(clientCorsPolicy, policy =>
     policy.WithOrigins(clientOrigin)
         .AllowAnyHeader()
@@ -53,24 +92,57 @@ if (builder.Environment.IsEnvironment("Testing"))
 }
 else
 {
-    var connectionString = builder.Configuration.GetConnectionString("CoffeeShop")
-        ?? throw new InvalidOperationException("ConnectionStrings:CoffeeShop is required.");
-    var fulfillmentCacheTimeToLive = ParseFulfillmentCacheTimeToLive(
-        builder.Configuration["FulfillmentCache:TimeToLive"]);
+    var connectionString = hostOptions.PostgreSqlConnectionString!;
     builder.Services.AddCounterModule(
         connectionString,
-        builder.Configuration.GetConnectionString("Redis"),
-        fulfillmentCacheTimeToLive);
+        hostOptions.RedisConnectionString,
+        hostOptions.ParsedFulfillmentCacheTimeToLive);
     builder.Services.AddBaristaModule(connectionString);
     builder.Services.AddKitchenModule(connectionString);
     builder.Services.AddSingleton(new PostgreSqlReadinessHealthCheck(connectionString));
     healthChecks.AddCheck<PostgreSqlReadinessHealthCheck>(
         "postgresql",
-        tags: ["ready"]);
+        tags: ["ready"],
+        timeout: TimeSpan.FromSeconds(2));
+    if (!string.IsNullOrWhiteSpace(hostOptions.RedisConnectionString))
+    {
+        healthChecks.AddCheck<RedisReadinessHealthCheck>(
+            "redis",
+            tags: ["ready"],
+            timeout: TimeSpan.FromSeconds(2));
+    }
+}
+
+if (authenticationEnabled
+    && Uri.TryCreate(
+        builder.Configuration["Authentication:Authority"],
+        UriKind.Absolute,
+        out var identityAuthority))
+{
+    var discoveryEndpoint = new Uri(
+        $"{identityAuthority.AbsoluteUri.TrimEnd('/')}/.well-known/openid-configuration");
+    builder.Services.AddHttpClient(IdentityProviderReadinessHealthCheck.HttpClientName, client =>
+        client.Timeout = TimeSpan.FromSeconds(2));
+    builder.Services.AddSingleton(services =>
+        new IdentityProviderReadinessHealthCheck(
+            services.GetRequiredService<IHttpClientFactory>(),
+            discoveryEndpoint));
+    healthChecks.AddCheck<IdentityProviderReadinessHealthCheck>(
+        "identity-provider",
+        tags: ["ready"],
+        timeout: TimeSpan.FromSeconds(3));
 }
 
 var app = builder.Build();
 
+app.UseSerilogRequestLogging(options =>
+{
+    options.Logger = app.Services.GetRequiredService<Serilog.ILogger>();
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+        diagnosticContext.Set(
+            "TraceId",
+            Activity.Current?.TraceId.ToString() ?? httpContext.TraceIdentifier);
+});
 app.UseExceptionHandler();
 app.UseCors(clientCorsPolicy);
 if (authenticationEnabled)
@@ -81,11 +153,13 @@ if (authenticationEnabled)
 app.MapGet("/", () => "Hello World!");
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
-    Predicate = _ => false
+    Predicate = _ => false,
+    ResponseWriter = WriteHealthResponseAsync
 });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
-    Predicate = registration => registration.Tags.Contains("ready")
+    Predicate = registration => registration.Tags.Contains("ready"),
+    ResponseWriter = WriteHealthResponseAsync
 });
 app.MapPlaceOrder();
 app.MapGetFulfilledOrders();
@@ -125,22 +199,27 @@ if (!app.Environment.IsEnvironment("Testing"))
     await app.Services.MigrateKitchenModuleAsync();
 }
 
-app.Run();
+await app.RunAsync();
+}
 
-static TimeSpan? ParseFulfillmentCacheTimeToLive(string? configuredValue)
+static Task WriteHealthResponseAsync(HttpContext context, HealthReport report)
 {
-    if (string.IsNullOrWhiteSpace(configuredValue))
-    {
-        return null;
-    }
-
-    if (!TimeSpan.TryParse(configuredValue, out var timeToLive))
-    {
-        throw new InvalidOperationException(
-            "FulfillmentCache:TimeToLive must be a valid TimeSpan.");
-    }
-
-    return timeToLive;
+    context.Response.ContentType = "application/json";
+    return JsonSerializer.SerializeAsync(
+        context.Response.Body,
+        new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries
+                .OrderBy(entry => entry.Key, StringComparer.Ordinal)
+                .Select(entry => new
+                {
+                    name = entry.Key,
+                    status = entry.Value.Status.ToString(),
+                    durationMilliseconds = entry.Value.Duration.TotalMilliseconds
+                })
+        },
+        cancellationToken: context.RequestAborted);
 }
 
 public partial class Program;

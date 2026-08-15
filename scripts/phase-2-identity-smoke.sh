@@ -90,6 +90,23 @@ if ! printf '%s' "$discovery" | grep -Fq "$token_path"; then
   diagnose_and_exit "Discovery did not advertise the expected token endpoint."
 fi
 
+echo "Waiting for API readiness with identity discovery enabled ..."
+while :; do
+  set_request_timeout 5
+  if readiness="$(curl --fail --silent --show-error \
+    --connect-timeout "$request_timeout" \
+    --max-time "$request_timeout" \
+    "${api_url}/health/ready" 2>/dev/null)" \
+    && printf '%s' "$readiness" | jq --exit-status '
+      .status == "Healthy"
+      and ([.checks[].name] | sort) == ["identity-provider", "postgresql", "redis"]
+      and all(.checks[]; .status == "Healthy")
+    ' >/dev/null; then
+    break
+  fi
+  wait_before_retry
+done
+
 request_access_token() {
   token_username="$1"
   token_password="$2"
