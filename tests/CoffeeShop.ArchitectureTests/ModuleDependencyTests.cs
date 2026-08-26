@@ -3,6 +3,7 @@ using ArchUnitNET.Fluent;
 using ArchUnitNET.Loader;
 using ArchUnitNET.xUnit;
 using CoffeeShop.Contracts.Menu;
+using CoffeeShop.IntegrationContracts;
 using CoffeeShop.Modules.Barista;
 using CoffeeShop.Modules.Counter;
 using CoffeeShop.Modules.Kitchen;
@@ -65,6 +66,18 @@ public sealed class ModuleDependencyTests
                 "Contracts must remain in-process messages independent of the host and business modules.")
             .Check(ArchitectureTestContext.Architecture);
     }
+
+    [Fact]
+    public void IntegrationContracts_must_be_broker_and_framework_independent()
+    {
+        ModuleDependencyRules.MustNotDependOn(
+                ArchitectureTestContext.IntegrationContractTypes,
+                ArchitectureTestContext.IntegrationContractForbiddenTypes,
+                "IntegrationContracts must remain independent of the host, modules, and in-process contracts.")
+            .Check(ArchitectureTestContext.Architecture);
+        SharedKernelRules.MustBeFrameworkFree(ArchitectureTestContext.IntegrationContractTypes)
+            .Check(ArchitectureTestContext.Architecture);
+    }
 }
 
 internal static class ArchitectureTestContext
@@ -73,6 +86,7 @@ internal static class ArchitectureTestContext
         .LoadAssemblies(
             typeof(Program).Assembly,
             typeof(ItemType).Assembly,
+            typeof(IIntegrationEvent).Assembly,
             typeof(BaristaModuleServiceCollectionExtensions).Assembly,
             typeof(ICounterModule).Assembly,
             typeof(KitchenModuleServiceCollectionExtensions).Assembly,
@@ -84,6 +98,9 @@ internal static class ArchitectureTestContext
 
     internal static readonly IObjectProvider<IType> ContractsTypes = Types().That()
         .ResideInAssembly(FullAssemblyName(typeof(ItemType).Assembly));
+
+    internal static readonly IObjectProvider<IType> IntegrationContractTypes = Types().That()
+        .ResideInAssembly(FullAssemblyName(typeof(IIntegrationEvent).Assembly));
 
     internal static readonly IObjectProvider<IType> BaristaTypes = Types().That()
         .ResideInAssembly(FullAssemblyName(typeof(BaristaModuleServiceCollectionExtensions).Assembly));
@@ -111,9 +128,16 @@ internal static class ArchitectureTestContext
         .Or()
         .Are(HostAndModuleTypes);
 
+    internal static readonly IObjectProvider<IType> IntegrationContractForbiddenTypes = Types().That()
+        .Are(ContractsTypes)
+        .Or()
+        .Are(SharedKernelTypes)
+        .Or()
+        .Are(HostAndModuleTypes);
+
     internal static readonly IObjectProvider<IType> ForbiddenFrameworkTypes = Types().That()
         .ResideInNamespaceMatching(
-            "(Microsoft\\.AspNetCore|Microsoft\\.EntityFrameworkCore|MediatR|StackExchange\\.Redis|Microsoft\\.IdentityModel|System\\.IdentityModel\\.Tokens\\.Jwt|Serilog|Confluent\\.Kafka|Dapr)(\\..*)?");
+            "(Microsoft\\.AspNetCore|Microsoft\\.EntityFrameworkCore|Microsoft\\.Extensions|MediatR|Npgsql|StackExchange\\.Redis|Microsoft\\.IdentityModel|System\\.IdentityModel\\.Tokens\\.Jwt|Serilog|Confluent|OpenTelemetry|Dapr)(\\..*)?");
 
     private static string FullAssemblyName(System.Reflection.Assembly assembly) => assembly.FullName
         ?? throw new InvalidOperationException($"Assembly '{assembly.GetName().Name}' has no full name.");

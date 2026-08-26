@@ -58,6 +58,10 @@ OIDC discovery khi được bật. Readiness response chỉ công bố tên/stat
 đúng shared multiplexer của cache, identity probe dùng named `HttpClient` có timeout ngắn. Xem
 [tài liệu Lesson 20](docs/lessons/20-operational-foundations.md) để hiểu startup validation và redaction.
 
+Lesson 21 mở Phase 3 bằng assembly `CoffeeShop.IntegrationContracts` broker-neutral. Hai Version 1 event
+dùng semantic wire name, payload tối thiểu không chứa loyalty identity và golden JSON fixture để phát hiện
+breaking change trước khi Kafka xuất hiện. Xem [tài liệu Lesson 21](docs/lessons/21-versioned-integration-events.md).
+
 Dọn containers và database volume local:
 
 ```bash
@@ -105,6 +109,7 @@ Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên data
 - [Lesson 18 — Phân quyền thao tác bằng policy](docs/lessons/18-policy-authorization.md)
 - [Lesson 19 — Cache fulfillment read model với Redis](docs/lessons/19-redis-read-model-cache.md)
 - [Lesson 20 — Structured logs và operational health](docs/lessons/20-operational-foundations.md)
+- [Lesson 21 — Versioned integration events](docs/lessons/21-versioned-integration-events.md)
 
 ## Nhánh Git
 
