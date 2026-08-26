@@ -81,6 +81,22 @@ public sealed class ConfigurationValidationTests
         Assert.Contains("Authentication:Audience", exception.ToString(), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Enabled_kafka_without_bootstrap_servers_fails_startup()
+    {
+        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting("Authentication:Enabled", "false");
+            builder.UseSetting("Messaging:Kafka:Enabled", "true");
+            builder.UseSetting("Messaging:Kafka:BootstrapServers", string.Empty);
+        });
+
+        var exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+
+        Assert.Contains("Kafka bootstrap servers are required", exception.ToString(), StringComparison.Ordinal);
+    }
+
     private static OptionsValidationException ResolveOptions(
         IReadOnlyDictionary<string, string?> settings)
     {

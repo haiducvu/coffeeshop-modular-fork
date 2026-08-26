@@ -76,6 +76,30 @@ public sealed class HealthSemanticsTests
         Assert.Contains("identity-provider", body, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Kafka_failure_affects_readiness_but_not_liveness_when_enabled()
+    {
+        await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting("Authentication:Enabled", "false");
+            builder.UseSetting("ConnectionStrings:Redis", string.Empty);
+            builder.UseSetting("Messaging:Kafka:Enabled", "true");
+            builder.UseSetting("Messaging:Kafka:BootstrapServers", "127.0.0.1:1");
+            builder.UseSetting("Messaging:Kafka:TopicPrefix", "coffeeshop");
+            builder.UseSetting("Messaging:Kafka:ConsumerGroupPrefix", "coffeeshop");
+        });
+        using var client = factory.CreateClient();
+
+        using var live = await client.GetAsync("/health/live");
+        using var ready = await client.GetAsync("/health/ready");
+        var readyBody = await ready.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, live.StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, ready.StatusCode);
+        Assert.Contains("kafka", readyBody, StringComparison.Ordinal);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory(
         Action<IServiceCollection>? configureServices = null)
     {

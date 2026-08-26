@@ -17,6 +17,7 @@ using CoffeeShop.Contracts.Orders;
 using CoffeeShop.Modules.Barista;
 using CoffeeShop.Modules.Counter;
 using CoffeeShop.Modules.Kitchen;
+using CoffeeShop.Messaging.Kafka;
 using CoffeeShop.SharedKernel.Events;
 using CoffeeShop.SharedKernel.Time;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -68,6 +69,22 @@ if (authenticationEnabled)
     builder.Services.AddCoffeeShopAuthorization();
 }
 var healthChecks = builder.Services.AddHealthChecks();
+var kafkaSection = builder.Configuration.GetSection(KafkaMessagingOptions.SectionName);
+var kafkaEnabled = bool.TryParse(kafkaSection["Enabled"], out var enabled) && enabled;
+if (kafkaEnabled)
+{
+    builder.Services.AddKafkaMessaging(options =>
+    {
+        options.BootstrapServers = kafkaSection["BootstrapServers"] ?? string.Empty;
+        options.TopicPrefix = kafkaSection["TopicPrefix"] ?? "coffeeshop";
+        options.ConsumerGroupPrefix =
+            kafkaSection["ConsumerGroupPrefix"] ?? "coffeeshop";
+    });
+    healthChecks.AddCheck<KafkaReadinessHealthCheck>(
+        "kafka",
+        tags: ["ready"],
+        timeout: TimeSpan.FromSeconds(2));
+}
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IPreparationDelay, TaskPreparationDelay>();
 builder.Services.AddScoped<IDomainEventDispatcher, ServiceProviderDomainEventDispatcher>();

@@ -62,6 +62,11 @@ Lesson 21 mở Phase 3 bằng assembly `CoffeeShop.IntegrationContracts` broker-
 dùng semantic wire name, payload tối thiểu không chứa loyalty identity và golden JSON fixture để phát hiện
 breaking change trước khi Kafka xuất hiện. Xem [tài liệu Lesson 21](docs/lessons/21-versioned-integration-events.md).
 
+Lesson 22 thêm messaging ports broker-neutral và adapter Kafka JSON dùng `acks=all`, idempotent producer,
+manual offset commit và hosted consumer shutdown sạch. Kafka 4.1.1 chạy opt-in qua profile `messaging`;
+khi bật, broker tham gia readiness nhưng không đổi workflow đặt món hiện tại. Testcontainers kiểm tra
+round-trip cùng offset commit trên broker thật. Xem [tài liệu Lesson 22](docs/lessons/22-kafka-json-transport.md).
+
 Dọn containers và database volume local:
 
 ```bash
@@ -110,6 +115,7 @@ Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên data
 - [Lesson 19 — Cache fulfillment read model với Redis](docs/lessons/19-redis-read-model-cache.md)
 - [Lesson 20 — Structured logs và operational health](docs/lessons/20-operational-foundations.md)
 - [Lesson 21 — Versioned integration events](docs/lessons/21-versioned-integration-events.md)
+- [Lesson 22 — Kafka JSON transport](docs/lessons/22-kafka-json-transport.md)
 
 ## Nhánh Git
 

@@ -4,6 +4,8 @@ using ArchUnitNET.Loader;
 using ArchUnitNET.xUnit;
 using CoffeeShop.Contracts.Menu;
 using CoffeeShop.IntegrationContracts;
+using CoffeeShop.Messaging.Abstractions;
+using CoffeeShop.Messaging.Kafka;
 using CoffeeShop.Modules.Barista;
 using CoffeeShop.Modules.Counter;
 using CoffeeShop.Modules.Kitchen;
@@ -78,6 +80,26 @@ public sealed class ModuleDependencyTests
         SharedKernelRules.MustBeFrameworkFree(ArchitectureTestContext.IntegrationContractTypes)
             .Check(ArchitectureTestContext.Architecture);
     }
+
+    [Fact]
+    public void Messaging_layers_must_keep_Kafka_out_of_contracts_and_modules()
+    {
+        ModuleDependencyRules.MustNotDependOn(
+                ArchitectureTestContext.MessagingAbstractionTypes,
+                ArchitectureTestContext.MessagingAbstractionForbiddenTypes,
+                "Messaging abstractions may depend only on IntegrationContracts and BCL types.")
+            .Check(ArchitectureTestContext.Architecture);
+        ModuleDependencyRules.MustNotDependOn(
+                ArchitectureTestContext.KafkaAdapterTypes,
+                ArchitectureTestContext.KafkaAdapterForbiddenTypes,
+                "The Kafka adapter must not depend on the API or business modules.")
+            .Check(ArchitectureTestContext.Architecture);
+        ModuleDependencyRules.MustNotDependOn(
+                ArchitectureTestContext.BusinessModuleTypes,
+                ArchitectureTestContext.KafkaAdapterTypes,
+                "Business modules must not depend on the Kafka adapter.")
+            .Check(ArchitectureTestContext.Architecture);
+    }
 }
 
 internal static class ArchitectureTestContext
@@ -87,6 +109,8 @@ internal static class ArchitectureTestContext
             typeof(Program).Assembly,
             typeof(ItemType).Assembly,
             typeof(IIntegrationEvent).Assembly,
+            typeof(IIntegrationEventPublisher).Assembly,
+            typeof(KafkaServiceCollectionExtensions).Assembly,
             typeof(BaristaModuleServiceCollectionExtensions).Assembly,
             typeof(ICounterModule).Assembly,
             typeof(KitchenModuleServiceCollectionExtensions).Assembly,
@@ -101,6 +125,12 @@ internal static class ArchitectureTestContext
 
     internal static readonly IObjectProvider<IType> IntegrationContractTypes = Types().That()
         .ResideInAssembly(FullAssemblyName(typeof(IIntegrationEvent).Assembly));
+
+    internal static readonly IObjectProvider<IType> MessagingAbstractionTypes = Types().That()
+        .ResideInAssembly(FullAssemblyName(typeof(IIntegrationEventPublisher).Assembly));
+
+    internal static readonly IObjectProvider<IType> KafkaAdapterTypes = Types().That()
+        .ResideInAssembly(FullAssemblyName(typeof(KafkaServiceCollectionExtensions).Assembly));
 
     internal static readonly IObjectProvider<IType> BaristaTypes = Types().That()
         .ResideInAssembly(FullAssemblyName(typeof(BaristaModuleServiceCollectionExtensions).Assembly));
@@ -123,12 +153,35 @@ internal static class ArchitectureTestContext
         .Or()
         .Are(KitchenTypes);
 
+    internal static readonly IObjectProvider<IType> BusinessModuleTypes = Types().That()
+        .Are(BaristaTypes)
+        .Or()
+        .Are(CounterTypes)
+        .Or()
+        .Are(KitchenTypes);
+
     internal static readonly IObjectProvider<IType> ContractsHostAndModuleTypes = Types().That()
         .Are(ContractsTypes)
         .Or()
         .Are(HostAndModuleTypes);
 
     internal static readonly IObjectProvider<IType> IntegrationContractForbiddenTypes = Types().That()
+        .Are(ContractsTypes)
+        .Or()
+        .Are(SharedKernelTypes)
+        .Or()
+        .Are(HostAndModuleTypes);
+
+    internal static readonly IObjectProvider<IType> MessagingAbstractionForbiddenTypes = Types().That()
+        .Are(ContractsTypes)
+        .Or()
+        .Are(SharedKernelTypes)
+        .Or()
+        .Are(KafkaAdapterTypes)
+        .Or()
+        .Are(HostAndModuleTypes);
+
+    internal static readonly IObjectProvider<IType> KafkaAdapterForbiddenTypes = Types().That()
         .Are(ContractsTypes)
         .Or()
         .Are(SharedKernelTypes)

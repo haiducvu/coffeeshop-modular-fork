@@ -4,6 +4,8 @@
     <Project Path="src/CoffeeShop.Contracts/CoffeeShop.Contracts.csproj" />
     <Project Path="src/CoffeeShop.DataGen/CoffeeShop.DataGen.csproj" />
     <Project Path="src/CoffeeShop.IntegrationContracts/CoffeeShop.IntegrationContracts.csproj" />
+    <Project Path="src/CoffeeShop.Messaging.Abstractions/CoffeeShop.Messaging.Abstractions.csproj" />
+    <Project Path="src/CoffeeShop.Messaging.Kafka/CoffeeShop.Messaging.Kafka.csproj" />
     <Project Path="src/CoffeeShop.Modules.Barista/CoffeeShop.Modules.Barista.csproj" />
     <Project Path="src/CoffeeShop.Modules.Counter/CoffeeShop.Modules.Counter.csproj" />
     <Project Path="src/CoffeeShop.Modules.Kitchen/CoffeeShop.Modules.Kitchen.csproj" />
@@ -16,6 +18,7 @@
     <Project Path="tests/CoffeeShop.DomainTests/CoffeeShop.DomainTests.csproj" />
     <Project Path="tests/CoffeeShop.DataGenTests/CoffeeShop.DataGenTests.csproj" />
     <Project Path="tests/CoffeeShop.IntegrationTests/CoffeeShop.IntegrationTests.csproj" />
+    <Project Path="tests/CoffeeShop.Messaging.IntegrationTests/CoffeeShop.Messaging.IntegrationTests.csproj" />
     <Project Path="tests/CoffeeShop.MessagingTests/CoffeeShop.MessagingTests.csproj" />
     <Project Path="tests/CoffeeShop.UnitTests/CoffeeShop.UnitTests.csproj" />
   </Folder>

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Confluent.Kafka" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CoffeeShop.IntegrationContracts\CoffeeShop.IntegrationContracts.csproj" />
+    <ProjectReference Include="..\CoffeeShop.Messaging.Abstractions\CoffeeShop.Messaging.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

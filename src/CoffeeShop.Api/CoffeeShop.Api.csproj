@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CoffeeShop.Contracts\CoffeeShop.Contracts.csproj" />
+    <ProjectReference Include="..\CoffeeShop.Messaging.Kafka\CoffeeShop.Messaging.Kafka.csproj" />
     <ProjectReference Include="..\CoffeeShop.Modules.Barista\CoffeeShop.Modules.Barista.csproj" />
     <ProjectReference Include="..\CoffeeShop.Modules.Counter\CoffeeShop.Modules.Counter.csproj" />
     <ProjectReference Include="..\CoffeeShop.Modules.Kitchen\CoffeeShop.Modules.Kitchen.csproj" />
