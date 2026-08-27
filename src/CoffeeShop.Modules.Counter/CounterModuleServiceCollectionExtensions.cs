@@ -1,10 +1,13 @@
 using CoffeeShop.Contracts.Orders;
+using CoffeeShop.IntegrationContracts.Orders;
 using CoffeeShop.Modules.Counter.Application.Fulfillment;
 using CoffeeShop.Modules.Counter.Application.GetOrder;
 using CoffeeShop.Modules.Counter.Application.Orders;
 using CoffeeShop.Modules.Counter.Application.Orders.GetFulfilled;
 using CoffeeShop.Modules.Counter.Application.Orders.PlaceOrder;
+using CoffeeShop.Modules.Counter.Application.Outbox;
 using CoffeeShop.Modules.Counter.Infrastructure.Caching;
+using CoffeeShop.Modules.Counter.Infrastructure.Outbox;
 using CoffeeShop.Modules.Counter.Infrastructure.Persistence;
 using CoffeeShop.SharedKernel.Events;
 using FluentValidation;
@@ -30,6 +33,7 @@ public static class CounterModuleServiceCollectionExtensions
             connectionString,
             enableRetries: true));
         services.AddScoped<IOrderRepository, EfOrderRepository>();
+        services.AddScoped<ICounterOutboxWriter, CounterOutboxWriter>();
         if (!string.IsNullOrWhiteSpace(redisConnectionString))
         {
             var cacheOptions = FulfillmentCacheOptions.Create(fulfillmentCacheTimeToLive);
@@ -60,6 +64,7 @@ public static class CounterModuleServiceCollectionExtensions
         AddCoreServices(services);
         services.AddSingleton<InMemoryOrderStore>();
         services.AddScoped<IOrderRepository, InMemoryOrderRepository>();
+        services.AddScoped<ICounterOutboxWriter, NoOpCounterOutboxWriter>();
         services.TryAddScoped<IDomainEventDispatcher, NoOpDomainEventDispatcher>();
         return services;
     }
@@ -99,5 +104,14 @@ public static class CounterModuleServiceCollectionExtensions
         services.AddScoped<IDomainEventHandler<OrderItemPrepared>, HandleOrderItemPrepared>();
         services.AddScoped<IDomainEventHandler<OrderUpdated>, InvalidateFulfillmentCache>();
         services.AddScoped<ICounterModule, CounterModule>();
+    }
+
+    private sealed class NoOpCounterOutboxWriter : ICounterOutboxWriter
+    {
+        public void Enqueue(
+            OrderPlacedV1 payload,
+            DateTimeOffset occurredAtUtc)
+        {
+        }
     }
 }

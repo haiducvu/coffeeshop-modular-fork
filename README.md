@@ -67,6 +67,11 @@ manual offset commit và hosted consumer shutdown sạch. Kafka 4.1.1 chạy opt
 khi bật, broker tham gia readiness nhưng không đổi workflow đặt món hiện tại. Testcontainers kiểm tra
 round-trip cùng offset commit trên broker thật. Xem [tài liệu Lesson 22](docs/lessons/22-kafka-json-transport.md).
 
+Lesson 23 thêm Transactional Outbox do Counter sở hữu. Mỗi order và một canonical `OrderPlacedV1` Outbox
+row được track bởi cùng `CounterDbContext` rồi commit bằng một `SaveChangesAsync`; PostgreSQL test chứng minh
+Outbox lỗi sẽ rollback cả order. Payload không chứa loyalty identity và chưa được publish cho tới Lesson 24,
+nên fulfillment in-process vẫn giữ nguyên. Xem [tài liệu Lesson 23](docs/lessons/23-transactional-outbox.md).
+
 Dọn containers và database volume local:
 
 ```bash
@@ -116,6 +121,7 @@ Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên data
 - [Lesson 20 — Structured logs và operational health](docs/lessons/20-operational-foundations.md)
 - [Lesson 21 — Versioned integration events](docs/lessons/21-versioned-integration-events.md)
 - [Lesson 22 — Kafka JSON transport](docs/lessons/22-kafka-json-transport.md)
+- [Lesson 23 — Transactional Outbox](docs/lessons/23-transactional-outbox.md)
 
 ## Nhánh Git
 
