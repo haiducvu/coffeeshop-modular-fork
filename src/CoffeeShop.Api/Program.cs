@@ -16,6 +16,7 @@ using CoffeeShop.Api.Time;
 using CoffeeShop.Contracts.Orders;
 using CoffeeShop.Modules.Barista;
 using CoffeeShop.Modules.Counter;
+using CoffeeShop.Modules.Counter.Infrastructure.Outbox;
 using CoffeeShop.Modules.Kitchen;
 using CoffeeShop.Messaging.Kafka;
 using CoffeeShop.SharedKernel.Events;
@@ -110,10 +111,19 @@ if (builder.Environment.IsEnvironment("Testing"))
 else
 {
     var connectionString = hostOptions.PostgreSqlConnectionString!;
+    Action<CounterOutboxOptions>? configureCounterOutbox = null;
+    if (kafkaEnabled)
+    {
+        var outboxSection = builder.Configuration.GetSection(
+            CounterOutboxOptions.SectionName);
+        configureCounterOutbox = outboxSection.Bind;
+    }
+
     builder.Services.AddCounterModule(
         connectionString,
         hostOptions.RedisConnectionString,
-        hostOptions.ParsedFulfillmentCacheTimeToLive);
+        hostOptions.ParsedFulfillmentCacheTimeToLive,
+        configureCounterOutbox);
     builder.Services.AddBaristaModule(connectionString);
     builder.Services.AddKitchenModule(connectionString);
     builder.Services.AddSingleton(new PostgreSqlReadinessHealthCheck(connectionString));

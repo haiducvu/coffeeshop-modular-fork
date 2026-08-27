@@ -72,6 +72,12 @@ row được track bởi cùng `CounterDbContext` rồi commit bằng một `Sav
 Outbox lỗi sẽ rollback cả order. Payload không chứa loyalty identity và chưa được publish cho tới Lesson 24,
 nên fulfillment in-process vẫn giữ nguyên. Xem [tài liệu Lesson 23](docs/lessons/23-transactional-outbox.md).
 
+Lesson 24 drain pending Counter Outbox rows sang Kafka bằng bounded batch và lease cạnh tranh an toàn với
+`FOR UPDATE SKIP LOCKED`. Claim transaction kết thúc trước broker I/O; success/failure chỉ được ghi khi đúng
+lease, còn lease hết hạn cho phép reclaim sau crash. Kafka vẫn là shadow path nên HTTP fulfillment không đổi.
+Real-broker test chứng minh crash sau ACK có thể publish lại cùng message ID — semantics at-least-once mà
+Inbox ở Lesson 25 phải xử lý. Xem [tài liệu Lesson 24](docs/lessons/24-outbox-publisher.md).
+
 Dọn containers và database volume local:
 
 ```bash
@@ -122,6 +128,7 @@ Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên data
 - [Lesson 21 — Versioned integration events](docs/lessons/21-versioned-integration-events.md)
 - [Lesson 22 — Kafka JSON transport](docs/lessons/22-kafka-json-transport.md)
 - [Lesson 23 — Transactional Outbox](docs/lessons/23-transactional-outbox.md)
+- [Lesson 24 — Publish leased Outbox batches](docs/lessons/24-outbox-publisher.md)
 
 ## Nhánh Git
 

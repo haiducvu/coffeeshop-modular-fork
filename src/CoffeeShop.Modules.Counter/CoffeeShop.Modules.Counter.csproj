@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\CoffeeShop.Contracts\CoffeeShop.Contracts.csproj" />
     <ProjectReference Include="..\CoffeeShop.IntegrationContracts\CoffeeShop.IntegrationContracts.csproj" />
+    <ProjectReference Include="..\CoffeeShop.Messaging.Abstractions\CoffeeShop.Messaging.Abstractions.csproj" />
     <ProjectReference Include="..\CoffeeShop.SharedKernel\CoffeeShop.SharedKernel.csproj" />
   </ItemGroup>
 
@@ -15,6 +16,7 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
   </ItemGroup>
 

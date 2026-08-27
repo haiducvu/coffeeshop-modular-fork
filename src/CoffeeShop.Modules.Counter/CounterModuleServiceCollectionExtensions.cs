@@ -25,7 +25,8 @@ public static class CounterModuleServiceCollectionExtensions
         this IServiceCollection services,
         string connectionString,
         string? redisConnectionString = null,
-        TimeSpan? fulfillmentCacheTimeToLive = null)
+        TimeSpan? fulfillmentCacheTimeToLive = null,
+        Action<CounterOutboxOptions>? configureOutbox = null)
     {
         AddCoreServices(services);
         services.AddDbContext<CounterDbContext>(options => ConfigureDatabase(
@@ -34,6 +35,30 @@ public static class CounterModuleServiceCollectionExtensions
             enableRetries: true));
         services.AddScoped<IOrderRepository, EfOrderRepository>();
         services.AddScoped<ICounterOutboxWriter, CounterOutboxWriter>();
+        if (configureOutbox is not null)
+        {
+            services.AddOptions<CounterOutboxOptions>()
+                .Configure(configureOutbox)
+                .Validate(
+                    options => options.BatchSize is >= 1 and <= 500,
+                    "Counter outbox BatchSize must be between 1 and 500.")
+                .Validate(
+                    options => options.PollInterval >= TimeSpan.FromMilliseconds(10)
+                        && options.PollInterval <= TimeSpan.FromMinutes(1),
+                    "Counter outbox PollInterval must be between 10 ms and 1 minute.")
+                .Validate(
+                    options => options.LeaseDuration >= TimeSpan.FromSeconds(1)
+                        && options.LeaseDuration <= TimeSpan.FromMinutes(10),
+                    "Counter outbox LeaseDuration must be between 1 second and 10 minutes.")
+                .Validate(
+                    options => options.RetryDelay >= TimeSpan.FromMilliseconds(100)
+                        && options.RetryDelay <= TimeSpan.FromMinutes(10),
+                    "Counter outbox RetryDelay must be between 100 ms and 10 minutes.")
+                .ValidateOnStart();
+            services.AddScoped<ICounterOutboxStore, CounterOutboxStore>();
+            services.AddScoped<CounterOutboxPublisher>();
+            services.AddHostedService<CounterOutboxWorker>();
+        }
         if (!string.IsNullOrWhiteSpace(redisConnectionString))
         {
             var cacheOptions = FulfillmentCacheOptions.Create(fulfillmentCacheTimeToLive);
