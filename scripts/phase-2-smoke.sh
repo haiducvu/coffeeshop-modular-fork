@@ -54,7 +54,7 @@ printf '%s' "$live_response" | jq --exit-status '
 
 printf '%s' "$ready_response" | jq --exit-status '
   .status == "Healthy"
-  and ([.checks[].name] | sort) == ["postgresql", "redis"]
+  and ([.checks[].name] | sort) == ["kafka", "postgresql", "redis"]
   and all(.checks[]; .status == "Healthy" and (.durationMilliseconds | type) == "number")
 ' >/dev/null || fail "Readiness did not report healthy PostgreSQL and Redis checks."
 

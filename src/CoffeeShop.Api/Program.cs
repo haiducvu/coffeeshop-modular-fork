@@ -14,10 +14,13 @@ using CoffeeShop.Api.Logging;
 using CoffeeShop.Api.Realtime;
 using CoffeeShop.Api.Time;
 using CoffeeShop.Contracts.Orders;
+using CoffeeShop.IntegrationContracts.Orders;
 using CoffeeShop.Modules.Barista;
+using CoffeeShop.Modules.Barista.Infrastructure.Outbox;
 using CoffeeShop.Modules.Counter;
 using CoffeeShop.Modules.Counter.Infrastructure.Outbox;
 using CoffeeShop.Modules.Kitchen;
+using CoffeeShop.Modules.Kitchen.Infrastructure.Outbox;
 using CoffeeShop.Messaging.Kafka;
 using CoffeeShop.SharedKernel.Events;
 using CoffeeShop.SharedKernel.Time;
@@ -71,7 +74,8 @@ if (authenticationEnabled)
 }
 var healthChecks = builder.Services.AddHealthChecks();
 var kafkaSection = builder.Configuration.GetSection(KafkaMessagingOptions.SectionName);
-var kafkaEnabled = bool.TryParse(kafkaSection["Enabled"], out var enabled) && enabled;
+var kafkaEnabled = bool.TryParse(kafkaSection["Enabled"], out var enabled)
+    && enabled;
 if (kafkaEnabled)
 {
     builder.Services.AddKafkaMessaging(options =>
@@ -85,6 +89,9 @@ if (kafkaEnabled)
         "kafka",
         tags: ["ready"],
         timeout: TimeSpan.FromSeconds(2));
+    builder.Services.AddKafkaConsumer<OrderPlacedV1>("barista");
+    builder.Services.AddKafkaConsumer<OrderPlacedV1>("kitchen");
+    builder.Services.AddKafkaConsumer<OrderItemPreparedV1>("counter");
 }
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IPreparationDelay, TaskPreparationDelay>();
@@ -112,11 +119,19 @@ else
 {
     var connectionString = hostOptions.PostgreSqlConnectionString!;
     Action<CounterOutboxOptions>? configureCounterOutbox = null;
+    Action<BaristaOutboxOptions>? configureBaristaOutbox = null;
+    Action<KitchenOutboxOptions>? configureKitchenOutbox = null;
     if (kafkaEnabled)
     {
         var outboxSection = builder.Configuration.GetSection(
             CounterOutboxOptions.SectionName);
         configureCounterOutbox = outboxSection.Bind;
+        configureBaristaOutbox = builder.Configuration
+            .GetSection(BaristaOutboxOptions.SectionName)
+            .Bind;
+        configureKitchenOutbox = builder.Configuration
+            .GetSection(KitchenOutboxOptions.SectionName)
+            .Bind;
     }
 
     builder.Services.AddCounterModule(
@@ -124,8 +139,8 @@ else
         hostOptions.RedisConnectionString,
         hostOptions.ParsedFulfillmentCacheTimeToLive,
         configureCounterOutbox);
-    builder.Services.AddBaristaModule(connectionString);
-    builder.Services.AddKitchenModule(connectionString);
+    builder.Services.AddBaristaModule(connectionString, configureBaristaOutbox);
+    builder.Services.AddKitchenModule(connectionString, configureKitchenOutbox);
     builder.Services.AddSingleton(new PostgreSqlReadinessHealthCheck(connectionString));
     healthChecks.AddCheck<PostgreSqlReadinessHealthCheck>(
         "postgresql",

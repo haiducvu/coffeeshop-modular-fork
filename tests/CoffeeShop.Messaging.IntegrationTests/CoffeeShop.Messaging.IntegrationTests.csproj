@@ -24,7 +24,9 @@
     <ProjectReference Include="..\..\src\CoffeeShop.IntegrationContracts\CoffeeShop.IntegrationContracts.csproj" />
     <ProjectReference Include="..\..\src\CoffeeShop.Messaging.Abstractions\CoffeeShop.Messaging.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\CoffeeShop.Messaging.Kafka\CoffeeShop.Messaging.Kafka.csproj" />
+    <ProjectReference Include="..\..\src\CoffeeShop.Modules.Barista\CoffeeShop.Modules.Barista.csproj" />
     <ProjectReference Include="..\..\src\CoffeeShop.Modules.Counter\CoffeeShop.Modules.Counter.csproj" />
+    <ProjectReference Include="..\..\src\CoffeeShop.Modules.Kitchen\CoffeeShop.Modules.Kitchen.csproj" />
     <ProjectReference Include="..\..\src\CoffeeShop.SharedKernel\CoffeeShop.SharedKernel.csproj" />
   </ItemGroup>
 

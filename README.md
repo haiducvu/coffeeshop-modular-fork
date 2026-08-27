@@ -63,8 +63,8 @@ dùng semantic wire name, payload tối thiểu không chứa loyalty identity v
 breaking change trước khi Kafka xuất hiện. Xem [tài liệu Lesson 21](docs/lessons/21-versioned-integration-events.md).
 
 Lesson 22 thêm messaging ports broker-neutral và adapter Kafka JSON dùng `acks=all`, idempotent producer,
-manual offset commit và hosted consumer shutdown sạch. Kafka 4.1.1 chạy opt-in qua profile `messaging`;
-khi bật, broker tham gia readiness nhưng không đổi workflow đặt món hiện tại. Testcontainers kiểm tra
+manual offset commit và hosted consumer shutdown sạch. Tại commit Lesson 22–24, Kafka 4.1.1 chạy opt-in qua
+profile `messaging`; từ Lesson 25 broker trở thành dependency mặc định. Testcontainers kiểm tra
 round-trip cùng offset commit trên broker thật. Xem [tài liệu Lesson 22](docs/lessons/22-kafka-json-transport.md).
 
 Lesson 23 thêm Transactional Outbox do Counter sở hữu. Mỗi order và một canonical `OrderPlacedV1` Outbox
@@ -77,6 +77,19 @@ Lesson 24 drain pending Counter Outbox rows sang Kafka bằng bounded batch và 
 lease, còn lease hết hạn cho phép reclaim sau crash. Kafka vẫn là shadow path nên HTTP fulfillment không đổi.
 Real-broker test chứng minh crash sau ACK có thể publish lại cùng message ID — semantics at-least-once mà
 Inbox ở Lesson 25 phải xử lý. Xem [tài liệu Lesson 24](docs/lessons/24-outbox-publisher.md).
+
+Lesson 25 chuyển fulfillment thật sang Kafka trong một atomic composition cutover. Barista, Kitchen và Counter
+có module-local Inbox; Inbox row, business effect và outgoing Outbox cùng commit bằng một `SaveChangesAsync`.
+Duplicate delivery trở thành no-op, còn offset chỉ commit sau database success. Kafka nay chạy mặc định trong
+Compose; HTTP, SignalR và Redis behavior được giữ nguyên nhưng fulfillment là eventual. Chạy fresh workflow:
+
+```bash
+docker compose down --volumes --remove-orphans
+docker compose up -d --build postgres redis kafka api signalr-client
+./scripts/phase-3-smoke.sh
+```
+
+Xem [tài liệu Lesson 25](docs/lessons/25-idempotent-inbox.md).
 
 Dọn containers và database volume local:
 
@@ -129,6 +142,7 @@ Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên data
 - [Lesson 22 — Kafka JSON transport](docs/lessons/22-kafka-json-transport.md)
 - [Lesson 23 — Transactional Outbox](docs/lessons/23-transactional-outbox.md)
 - [Lesson 24 — Publish leased Outbox batches](docs/lessons/24-outbox-publisher.md)
+- [Lesson 25 — Idempotent Inbox và Kafka fulfillment](docs/lessons/25-idempotent-inbox.md)
 
 ## Nhánh Git
 

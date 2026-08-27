@@ -1,0 +1,114 @@
+#!/bin/sh
+
+set -eu
+
+method="GET"
+url=""
+data=""
+authorization=""
+scope=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --request)
+      method="$2"
+      shift
+      ;;
+    --data|--data-urlencode)
+      data="$2"
+      case "$2" in
+        scope=*) scope="${2#scope=}" ;;
+      esac
+      shift
+      ;;
+    --header)
+      case "$2" in
+        "Authorization: Bearer "*) authorization="${2#Authorization: Bearer }" ;;
+      esac
+      shift
+      ;;
+    --connect-timeout|--max-time)
+      shift
+      ;;
+    --fail|--silent|--show-error)
+      ;;
+    *)
+      url="$1"
+      ;;
+  esac
+  shift
+done
+
+trace() {
+  if [ -n "${FAKE_PHASE3_TRACE:-}" ]; then
+    printf '%s\n' "$1" >> "$FAKE_PHASE3_TRACE"
+  fi
+}
+
+case "$url" in
+  */health/ready)
+    trace "GET readiness"
+    if [ "${FAKE_PHASE3_NO_KAFKA:-false}" = true ]; then
+      printf '%s' '{"status":"Healthy","checks":[{"name":"postgresql","status":"Healthy","durationMilliseconds":1},{"name":"redis","status":"Healthy","durationMilliseconds":1}]}'
+    elif [ "${AUTHENTICATION_ENABLED:-false}" = true ]; then
+      printf '%s' '{"status":"Healthy","checks":[{"name":"identity-provider","status":"Healthy","durationMilliseconds":1},{"name":"kafka","status":"Healthy","durationMilliseconds":1},{"name":"postgresql","status":"Healthy","durationMilliseconds":1},{"name":"redis","status":"Healthy","durationMilliseconds":1}]}'
+    else
+      printf '%s' '{"status":"Healthy","checks":[{"name":"kafka","status":"Healthy","durationMilliseconds":1},{"name":"postgresql","status":"Healthy","durationMilliseconds":1},{"name":"redis","status":"Healthy","durationMilliseconds":1}]}'
+    fi
+    ;;
+  */protocol/openid-connect/token)
+    if [ "$scope" != openid ]; then
+      exit 22
+    fi
+    trace "POST token"
+    printf '%s' '{"access_token":"controlled-phase3-token"}'
+    ;;
+  */protocol/openid-connect/userinfo)
+    if [ "$authorization" != controlled-phase3-token ]; then
+      exit 22
+    fi
+    trace "GET userinfo authenticated"
+    printf '%s' '{"sub":"11111111-2222-3333-4444-555555555555"}'
+    ;;
+  */v1/api/orders)
+    trace "POST order-v1"
+    loyalty="$(printf '%s' "$data" | sed -n 's/.*"loyaltyMemberId":"\([^"]*\)".*/\1/p')"
+    printf '%s' "$loyalty" > "${FAKE_PHASE3_STATE:?}"
+    printf '%s' '{}'
+    ;;
+  */v1/api/fulfillment-orders)
+    trace "GET fulfilled-v1"
+    if [ "${FAKE_PHASE3_NEVER_FULFILLED:-false}" = true ]; then
+      printf '%s' '[]'
+    else
+      loyalty="$(cat "${FAKE_PHASE3_STATE:?}")"
+      printf '[{"loyaltyMemberId":"%s","status":"Fulfilled"}]' "$loyalty"
+    fi
+    ;;
+  */v2/orders)
+    if [ "$method" != POST ] || [ "$authorization" != controlled-phase3-token ]; then
+      exit 22
+    fi
+    loyalty="$(printf '%s' "$data" | sed -n 's/.*"loyaltyMemberId":"\([^"]*\)".*/\1/p')"
+    if [ "$loyalty" != 11111111-2222-3333-4444-555555555555 ]; then
+      exit 22
+    fi
+    printf '%s' "$loyalty" > "${FAKE_PHASE3_STATE:?}"
+    trace "POST order-v2 authenticated"
+    printf '%s' '{"orderId":"7a97d7bf-f7e3-4294-9d5c-b95b957342c5","status":"InProgress"}'
+    ;;
+  */v2/orders/*)
+    if [ "$authorization" != controlled-phase3-token ]; then
+      exit 22
+    fi
+    trace "GET order-v2 authenticated"
+    if [ "${FAKE_PHASE3_NEVER_FULFILLED:-false}" = true ]; then
+      printf '%s' '{"orderId":"7a97d7bf-f7e3-4294-9d5c-b95b957342c5","status":"InProgress"}'
+    else
+      printf '%s' '{"orderId":"7a97d7bf-f7e3-4294-9d5c-b95b957342c5","status":"Fulfilled"}'
+    fi
+    ;;
+  *)
+    echo "Unexpected phase 3 fake curl URL: $url" >&2
+    exit 2
+    ;;
+esac

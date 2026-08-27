@@ -94,6 +94,40 @@ namespace CoffeeShop.Modules.Counter.Infrastructure.Persistence.Migrations
                     b.ToTable("orders", "counter");
                 });
 
+            modelBuilder.Entity("CoffeeShop.Modules.Counter.Infrastructure.Inbox.CounterInboxMessage", b =>
+                {
+                    b.Property<string>("HandlerName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<int>("EventVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("ProcessedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ReceivedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Result")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("HandlerName", "MessageId");
+
+                    b.HasIndex("ReceivedAtUtc");
+
+                    b.ToTable("inbox_messages", "counter");
+                });
+
             modelBuilder.Entity("CoffeeShop.Modules.Counter.Infrastructure.Outbox.CounterOutboxMessage", b =>
                 {
                     b.Property<Guid>("MessageId")

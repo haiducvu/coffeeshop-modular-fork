@@ -21,7 +21,8 @@ public sealed class OutboxPostgreSqlFixture : IAsyncLifetime
         await using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync();
         await using var command = connection.CreateCommand();
-        command.CommandText = "DROP SCHEMA IF EXISTS counter CASCADE;";
+        command.CommandText =
+            "DROP SCHEMA IF EXISTS counter, barista, kitchen CASCADE;";
         await command.ExecuteNonQueryAsync();
     }
 

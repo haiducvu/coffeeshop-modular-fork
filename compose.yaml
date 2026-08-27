@@ -30,7 +30,6 @@ services:
       start_period: 2s
 
   kafka:
-    profiles: ["messaging"]
     image: apache/kafka:4.1.1
     hostname: kafka
     ports:
@@ -79,7 +78,7 @@ services:
       Authentication__Authority: ${AUTHENTICATION_AUTHORITY:-http://keycloak:8080/realms/coffeeshop}
       Authentication__Audience: ${AUTHENTICATION_AUDIENCE:-coffeeshop-api}
       Authentication__RequireHttpsMetadata: ${AUTHENTICATION_REQUIRE_HTTPS_METADATA:-false}
-      Messaging__Kafka__Enabled: ${KAFKA_ENABLED:-false}
+      Messaging__Kafka__Enabled: ${KAFKA_ENABLED:-true}
       Messaging__Kafka__BootstrapServers: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:19092}
       Messaging__Kafka__TopicPrefix: ${KAFKA_TOPIC_PREFIX:-coffeeshop}
       Messaging__Kafka__ConsumerGroupPrefix: ${KAFKA_CONSUMER_GROUP_PREFIX:-coffeeshop}
@@ -87,12 +86,22 @@ services:
       Messaging__CounterOutbox__PollInterval: ${COUNTER_OUTBOX_POLL_INTERVAL:-00:00:01}
       Messaging__CounterOutbox__LeaseDuration: ${COUNTER_OUTBOX_LEASE_DURATION:-00:00:30}
       Messaging__CounterOutbox__RetryDelay: ${COUNTER_OUTBOX_RETRY_DELAY:-00:00:05}
+      Messaging__BaristaOutbox__BatchSize: ${BARISTA_OUTBOX_BATCH_SIZE:-20}
+      Messaging__BaristaOutbox__PollInterval: ${BARISTA_OUTBOX_POLL_INTERVAL:-00:00:01}
+      Messaging__BaristaOutbox__LeaseDuration: ${BARISTA_OUTBOX_LEASE_DURATION:-00:00:30}
+      Messaging__BaristaOutbox__RetryDelay: ${BARISTA_OUTBOX_RETRY_DELAY:-00:00:05}
+      Messaging__KitchenOutbox__BatchSize: ${KITCHEN_OUTBOX_BATCH_SIZE:-20}
+      Messaging__KitchenOutbox__PollInterval: ${KITCHEN_OUTBOX_POLL_INTERVAL:-00:00:01}
+      Messaging__KitchenOutbox__LeaseDuration: ${KITCHEN_OUTBOX_LEASE_DURATION:-00:00:30}
+      Messaging__KitchenOutbox__RetryDelay: ${KITCHEN_OUTBOX_RETRY_DELAY:-00:00:05}
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     healthcheck:
       test:

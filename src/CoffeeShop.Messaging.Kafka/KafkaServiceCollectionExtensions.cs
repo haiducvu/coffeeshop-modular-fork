@@ -29,11 +29,10 @@ public static class KafkaServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddKafkaConsumer<TPayload, THandler>(
+    public static IServiceCollection AddKafkaConsumer<TPayload>(
         this IServiceCollection services,
         string consumerRole)
         where TPayload : IIntegrationEvent
-        where THandler : class, IIntegrationEventHandler<TPayload>
     {
         if (!IsValidName(consumerRole))
         {
@@ -43,10 +42,22 @@ public static class KafkaServiceCollectionExtensions
         }
 
         services.AddSingleton<IHostedService>(serviceProvider =>
-            ActivatorUtilities.CreateInstance<KafkaConsumerWorker<TPayload, THandler>>(
+            ActivatorUtilities.CreateInstance<KafkaConsumerWorker<TPayload>>(
                 serviceProvider,
                 consumerRole));
         return services;
+    }
+
+    public static IServiceCollection AddKafkaConsumer<TPayload, THandler>(
+        this IServiceCollection services,
+        string consumerRole)
+        where TPayload : IIntegrationEvent
+        where THandler : class, IIntegrationEventHandler<TPayload>
+    {
+        services.AddKeyedScoped<IIntegrationEventHandler<TPayload>>(
+            consumerRole,
+            (serviceProvider, _) => serviceProvider.GetRequiredService<THandler>());
+        return services.AddKafkaConsumer<TPayload>(consumerRole);
     }
 
     private static bool IsValidName(string value) =>

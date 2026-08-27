@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -eu
+
+case "$*" in
+  *"exec -T redis redis-cli --raw EXISTS fulfilled-orders:v1"*)
+    printf '%s\n' '1'
+    ;;
+  *"exec -T postgres psql"*)
+    printf '%s\n' '1|1|1|1|2|0'
+    ;;
+  *)
+    ;;
+esac

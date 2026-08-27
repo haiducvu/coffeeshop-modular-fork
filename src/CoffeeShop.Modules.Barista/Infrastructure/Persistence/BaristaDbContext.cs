@@ -1,4 +1,6 @@
 using CoffeeShop.Modules.Barista.Domain;
+using CoffeeShop.Modules.Barista.Infrastructure.Inbox;
+using CoffeeShop.Modules.Barista.Infrastructure.Outbox;
 using Microsoft.EntityFrameworkCore;
 
 namespace CoffeeShop.Modules.Barista.Infrastructure.Persistence;
@@ -7,6 +9,8 @@ internal sealed class BaristaDbContext(DbContextOptions<BaristaDbContext> option
     : DbContext(options)
 {
     public DbSet<BaristaItem> Items => Set<BaristaItem>();
+    public DbSet<BaristaInboxMessage> InboxMessages => Set<BaristaInboxMessage>();
+    public DbSet<BaristaOutboxMessage> OutboxMessages => Set<BaristaOutboxMessage>();
 
     public static BaristaDbContext Create(string connectionString)
     {

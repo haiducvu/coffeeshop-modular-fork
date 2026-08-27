@@ -13,6 +13,7 @@ public sealed class FulfilledOrderQueryTests(PostgreSqlFixture fixture)
     [Fact]
     public async Task Lists_only_fulfilled_orders_and_includes_line_items()
     {
+        await fixture.ResetModuleSchemasAsync();
         await using var dbContext = CounterDbContext.Create(fixture.ConnectionString);
         await dbContext.Database.MigrateAsync();
         var fulfilled = CreateOrder(ItemType.Cappuccino, PreparationStation.Barista);

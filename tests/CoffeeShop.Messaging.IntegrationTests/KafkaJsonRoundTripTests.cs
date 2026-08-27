@@ -14,6 +14,38 @@ namespace CoffeeShop.Messaging.IntegrationTests;
 public sealed class KafkaJsonRoundTripTests(KafkaFixture fixture)
 {
     [Fact]
+    public async Task Hosted_consumer_survives_topic_creation_race_and_then_handles_message()
+    {
+        using var testTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var cancellationToken = testTimeout.Token;
+        var runId = Guid.NewGuid().ToString("N");
+        var topicPrefix = $"coffeeshop-{runId}";
+        var topic = $"{topicPrefix}.orders.v1";
+        var handler = new RecordingOrderPlacedHandler();
+        using var host = BuildHost(topicPrefix, $"lesson25-{runId}", handler);
+
+        await host.StartAsync(cancellationToken);
+        await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+
+        var lifetime = host.Services.GetRequiredService<IHostApplicationLifetime>();
+        Assert.False(lifetime.ApplicationStopped.IsCancellationRequested);
+
+        await CreateTopicAsync(topic);
+        var expected = CreateEnvelope(Guid.NewGuid());
+        var publisher = host.Services.GetRequiredService<IIntegrationEventPublisher>();
+        await publisher.PublishAsync(
+            expected.Payload.OrderId.ToString("D"),
+            expected,
+            cancellationToken);
+
+        var received = await handler.ReadAsync(cancellationToken);
+        Assert.Equal(expected.MessageId, received.Message.MessageId);
+
+        using var stopTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await host.StopAsync(stopTimeout.Token);
+    }
+
+    [Fact]
     public async Task Hosted_consumer_round_trips_json_commits_offset_and_stops_cleanly()
     {
         using var testTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));

@@ -45,11 +45,16 @@ public sealed class ModuleSchemaTests(PostgreSqlFixture fixture)
 
         Assert.Equal(
             [
+                "barista.inbox_messages",
                 "barista.items",
+                "barista.outbox_messages",
+                "counter.inbox_messages",
                 "counter.line_items",
                 "counter.orders",
                 "counter.outbox_messages",
-                "kitchen.items"
+                "kitchen.inbox_messages",
+                "kitchen.items",
+                "kitchen.outbox_messages"
             ],
             tables);
     }

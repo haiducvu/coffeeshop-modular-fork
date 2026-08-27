@@ -1,4 +1,6 @@
 using CoffeeShop.Modules.Kitchen.Domain;
+using CoffeeShop.Modules.Kitchen.Infrastructure.Inbox;
+using CoffeeShop.Modules.Kitchen.Infrastructure.Outbox;
 using Microsoft.EntityFrameworkCore;
 
 namespace CoffeeShop.Modules.Kitchen.Infrastructure.Persistence;
@@ -7,6 +9,8 @@ internal sealed class KitchenDbContext(DbContextOptions<KitchenDbContext> option
     : DbContext(options)
 {
     public DbSet<KitchenItem> Items => Set<KitchenItem>();
+    public DbSet<KitchenInboxMessage> InboxMessages => Set<KitchenInboxMessage>();
+    public DbSet<KitchenOutboxMessage> OutboxMessages => Set<KitchenOutboxMessage>();
 
     public static KitchenDbContext Create(string connectionString)
     {

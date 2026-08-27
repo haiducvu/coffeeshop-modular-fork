@@ -1,6 +1,7 @@
 using Confluent.Kafka;
 using CoffeeShop.IntegrationContracts;
 using CoffeeShop.Messaging.Abstractions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace CoffeeShop.Messaging.Kafka;
@@ -13,12 +14,15 @@ internal sealed class KafkaIntegrationEventPublisher : IIntegrationEventPublishe
 
     public KafkaIntegrationEventPublisher(
         IOptions<KafkaMessagingOptions> options,
-        KafkaIntegrationEventMapper mapper)
+        KafkaIntegrationEventMapper mapper,
+        ILogger<KafkaIntegrationEventPublisher> logger)
     {
         _options = options.Value;
         _mapper = mapper;
         _producer = new ProducerBuilder<string, byte[]>(
-            KafkaClientConfigFactory.CreateProducer(_options)).Build();
+                KafkaClientConfigFactory.CreateProducer(_options))
+            .SetLogHandler((_, message) => KafkaLogForwarder.Log(logger, message))
+            .Build();
     }
 
     public async Task PublishAsync<TPayload>(

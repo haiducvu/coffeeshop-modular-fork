@@ -1,4 +1,5 @@
 using CoffeeShop.Modules.Counter.Domain.Orders;
+using CoffeeShop.Modules.Counter.Infrastructure.Inbox;
 using CoffeeShop.Modules.Counter.Infrastructure.Outbox;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,6 +10,7 @@ internal sealed class CounterDbContext(DbContextOptions<CounterDbContext> option
 {
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<LineItem> LineItems => Set<LineItem>();
+    public DbSet<CounterInboxMessage> InboxMessages => Set<CounterInboxMessage>();
     public DbSet<CounterOutboxMessage> OutboxMessages => Set<CounterOutboxMessage>();
 
     public static CounterDbContext Create(string connectionString)

@@ -1,5 +1,7 @@
 using CoffeeShop.Contracts.Orders;
 using CoffeeShop.IntegrationContracts.Orders;
+using CoffeeShop.Messaging.Abstractions;
+using CoffeeShop.Modules.Counter.Application.Inbox;
 using CoffeeShop.Modules.Counter.Application.Fulfillment;
 using CoffeeShop.Modules.Counter.Application.GetOrder;
 using CoffeeShop.Modules.Counter.Application.Orders;
@@ -7,6 +9,7 @@ using CoffeeShop.Modules.Counter.Application.Orders.GetFulfilled;
 using CoffeeShop.Modules.Counter.Application.Orders.PlaceOrder;
 using CoffeeShop.Modules.Counter.Application.Outbox;
 using CoffeeShop.Modules.Counter.Infrastructure.Caching;
+using CoffeeShop.Modules.Counter.Infrastructure.Inbox;
 using CoffeeShop.Modules.Counter.Infrastructure.Outbox;
 using CoffeeShop.Modules.Counter.Infrastructure.Persistence;
 using CoffeeShop.SharedKernel.Events;
@@ -35,6 +38,10 @@ public static class CounterModuleServiceCollectionExtensions
             enableRetries: true));
         services.AddScoped<IOrderRepository, EfOrderRepository>();
         services.AddScoped<ICounterOutboxWriter, CounterOutboxWriter>();
+        services.AddScoped<ICounterInbox, CounterInbox>();
+        services.AddKeyedScoped<
+            IIntegrationEventHandler<OrderItemPreparedV1>,
+            HandleOrderItemPreparedIntegrationEvent>("counter");
         if (configureOutbox is not null)
         {
             services.AddOptions<CounterOutboxOptions>()
@@ -126,7 +133,6 @@ public static class CounterModuleServiceCollectionExtensions
         services.AddScoped<PlaceOrderHandler>();
         services.AddScoped<GetFulfilledOrdersHandler>();
         services.AddScoped<GetOrderHandler>();
-        services.AddScoped<IDomainEventHandler<OrderItemPrepared>, HandleOrderItemPrepared>();
         services.AddScoped<IDomainEventHandler<OrderUpdated>, InvalidateFulfillmentCache>();
         services.AddScoped<ICounterModule, CounterModule>();
     }

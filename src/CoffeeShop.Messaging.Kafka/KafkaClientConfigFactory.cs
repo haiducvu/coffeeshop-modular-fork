@@ -18,6 +18,7 @@ internal static class KafkaClientConfigFactory
         BootstrapServers = options.BootstrapServers,
         GroupId = $"{options.ConsumerGroupPrefix}.{consumerRole}",
         AutoOffsetReset = AutoOffsetReset.Earliest,
-        EnableAutoCommit = false
+        EnableAutoCommit = false,
+        TopicMetadataRefreshIntervalMs = 1_000
     };
 }
