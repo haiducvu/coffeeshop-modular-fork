@@ -23,6 +23,8 @@ public sealed class KafkaClientPolicyTests
 
         Assert.Equal(AutoOffsetReset.Earliest, config.AutoOffsetReset);
         Assert.False(config.EnableAutoCommit);
+        Assert.Equal(10_000, config.SessionTimeoutMs);
+        Assert.Equal(300_000, config.MaxPollIntervalMs);
         Assert.Equal("lesson22.barista", config.GroupId);
     }
 
@@ -38,6 +40,24 @@ public sealed class KafkaClientPolicyTests
             provider.GetRequiredService<IOptions<KafkaMessagingOptions>>().Value);
 
         Assert.Contains("Kafka bootstrap servers are required", exception.Message);
+    }
+
+    [Fact]
+    public void Retry_poll_interval_shorter_than_safe_handler_window_fails_validation()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddKafkaMessaging(options =>
+        {
+            options.BootstrapServers = "localhost:9092";
+            options.Retry.MaxPollInterval = TimeSpan.FromSeconds(30);
+        });
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<OptionsValidationException>(() =>
+            provider.GetRequiredService<IOptions<KafkaMessagingOptions>>().Value);
+
+        Assert.Contains("at least five minutes", exception.Message);
     }
 
     private static KafkaMessagingOptions CreateOptions() => new()

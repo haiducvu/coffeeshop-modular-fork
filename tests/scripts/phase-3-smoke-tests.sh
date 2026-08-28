@@ -18,13 +18,14 @@ run_smoke() {
     AUTHENTICATION_ENABLED="${AUTHENTICATION_ENABLED:-false}" \
     FAKE_PHASE3_NEVER_FULFILLED="${FAKE_PHASE3_NEVER_FULFILLED:-false}" \
     FAKE_PHASE3_NO_KAFKA="${FAKE_PHASE3_NO_KAFKA:-false}" \
+    FAKE_PHASE3_NO_DLT="${FAKE_PHASE3_NO_DLT:-false}" \
     "$smoke_script" 2>&1)"; then
     status=0
   else
     status=$?
   fi
   trace="$(cat "$trace_file")"
-  rm -f "$trace_file" "$state_file"
+  rm -f "$trace_file" "$state_file" "$state_file.dlt"
 }
 
 run_smoke
@@ -78,6 +79,21 @@ else
   echo "PASS: readiness without Kafka was rejected within the deadline."
 fi
 unset SMOKE_TIMEOUT_SECONDS FAKE_PHASE3_NO_KAFKA
+
+started_at="$(date +%s)"
+SMOKE_TIMEOUT_SECONDS=1 FAKE_PHASE3_NO_DLT=true run_smoke
+elapsed_seconds=$(( $(date +%s) - started_at ))
+case "$output" in
+  *"The global smoke-test deadline was exceeded."*) deadline_message=true ;;
+  *) deadline_message=false ;;
+esac
+if [ "$status" -eq 0 ] || [ "$elapsed_seconds" -gt 2 ] || [ "$deadline_message" != true ]; then
+  echo "FAIL: missing DLT routing was accepted or unbounded." >&2
+  failures=$((failures + 1))
+else
+  echo "PASS: missing DLT routing was rejected within the deadline."
+fi
+unset SMOKE_TIMEOUT_SECONDS FAKE_PHASE3_NO_DLT
 
 if [ "$failures" -ne 0 ]; then
   echo "Phase 3 smoke behavior tests failed: ${failures} case(s)." >&2

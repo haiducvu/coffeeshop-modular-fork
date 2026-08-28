@@ -80,10 +80,7 @@ if (kafkaEnabled)
 {
     builder.Services.AddKafkaMessaging(options =>
     {
-        options.BootstrapServers = kafkaSection["BootstrapServers"] ?? string.Empty;
-        options.TopicPrefix = kafkaSection["TopicPrefix"] ?? "coffeeshop";
-        options.ConsumerGroupPrefix =
-            kafkaSection["ConsumerGroupPrefix"] ?? "coffeeshop";
+        kafkaSection.Bind(options);
     });
     healthChecks.AddCheck<KafkaReadinessHealthCheck>(
         "kafka",

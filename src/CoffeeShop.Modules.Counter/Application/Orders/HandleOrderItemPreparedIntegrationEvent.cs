@@ -32,11 +32,21 @@ internal sealed class HandleOrderItemPreparedIntegrationEvent(
 
         var prepared = message.Payload;
         var order = await repository.FindAsync(prepared.OrderId, cancellationToken)
-            ?? throw new DomainException($"Order {prepared.OrderId} was not found.");
-        order.CompleteItem(
-            prepared.LineItemId,
-            prepared.MadeBy,
-            prepared.OccurredAtUtc);
+            ?? throw new IntegrationEventRejectedException("order-not-found");
+        try
+        {
+            order.CompleteItem(
+                prepared.LineItemId,
+                prepared.MadeBy,
+                prepared.OccurredAtUtc);
+        }
+        catch (DomainException exception)
+        {
+            throw new IntegrationEventRejectedException(
+                "invalid-order-item",
+                exception);
+        }
+
         await inbox.CompleteAsync(
             HandlerName,
             message.MessageId,

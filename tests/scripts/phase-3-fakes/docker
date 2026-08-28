@@ -9,6 +9,19 @@ case "$*" in
   *"exec -T postgres psql"*)
     printf '%s\n' '1|1|1|1|2|0'
     ;;
+  *"kafka-console-producer.sh"*)
+    while IFS= read -r line; do :; done
+    : > "${FAKE_PHASE3_STATE:?}.dlt"
+    ;;
+  *"kafka-get-offsets.sh"*)
+    if [ "${FAKE_PHASE3_NO_DLT:-false}" = true ]; then
+      printf '%s\n' 'coffeeshop.orders.v1.dlt:0:0'
+    elif [ -f "${FAKE_PHASE3_STATE:?}.dlt" ]; then
+      printf '%s\n' 'coffeeshop.orders.v1.dlt:0:2'
+    else
+      printf '%s\n' 'coffeeshop.orders.v1.dlt:0:0'
+    fi
+    ;;
   *)
     ;;
 esac

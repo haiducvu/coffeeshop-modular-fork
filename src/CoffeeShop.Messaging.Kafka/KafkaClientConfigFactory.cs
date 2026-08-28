@@ -4,6 +4,8 @@ namespace CoffeeShop.Messaging.Kafka;
 
 internal static class KafkaClientConfigFactory
 {
+    internal const int SessionTimeoutMilliseconds = 10_000;
+
     internal static ProducerConfig CreateProducer(KafkaMessagingOptions options) => new()
     {
         BootstrapServers = options.BootstrapServers,
@@ -19,6 +21,9 @@ internal static class KafkaClientConfigFactory
         GroupId = $"{options.ConsumerGroupPrefix}.{consumerRole}",
         AutoOffsetReset = AutoOffsetReset.Earliest,
         EnableAutoCommit = false,
-        TopicMetadataRefreshIntervalMs = 1_000
+        TopicMetadataRefreshIntervalMs = 1_000,
+        SessionTimeoutMs = SessionTimeoutMilliseconds,
+        MaxPollIntervalMs = checked(
+            (int)options.Retry.MaxPollInterval.TotalMilliseconds)
     };
 }

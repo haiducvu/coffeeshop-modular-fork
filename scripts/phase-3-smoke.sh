@@ -208,4 +208,35 @@ if [ "$effect_counts" != '1|1|1|1|2|0' ]; then
   fail "Inbox, station, or published Outbox counts were unexpected."
 fi
 
-echo "Phase 3 smoke test passed: Kafka fulfilled one mixed order with Inbox deduplication."
+read_dead_letter_count() {
+  dead_letter_offsets="$(docker compose exec -T kafka \
+    /opt/kafka/bin/kafka-get-offsets.sh \
+    --bootstrap-server localhost:19092 \
+    --topic coffeeshop.orders.v1.dlt 2>/dev/null || true)"
+  printf '%s\n' "$dead_letter_offsets" | awk -F: '
+    NF == 3 { total += $3 }
+    END { print total + 0 }
+  '
+}
+
+dead_letter_count_before="$(read_dead_letter_count)"
+expected_dead_letter_count=$(( dead_letter_count_before + 2 ))
+echo "Sending one poison record and waiting for both station consumers to dead-letter it ..."
+if ! printf '%s\n' 'poison-order|{"broken":' | docker compose exec -T kafka \
+    /opt/kafka/bin/kafka-console-producer.sh \
+    --bootstrap-server localhost:19092 \
+    --topic coffeeshop.orders.v1 \
+    --property parse.key=true \
+    --property 'key.separator=|' >/dev/null; then
+  fail "The poison Kafka record could not be produced."
+fi
+
+while :; do
+  dead_letter_count="$(read_dead_letter_count)"
+  if [ "$dead_letter_count" -ge "$expected_dead_letter_count" ]; then
+    break
+  fi
+  wait_before_retry
+done
+
+echo "Phase 3 smoke test passed: fulfillment stayed idempotent and poison input reached DLT."

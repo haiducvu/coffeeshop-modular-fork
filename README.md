@@ -91,6 +91,13 @@ docker compose up -d --build postgres redis kafka api signalr-client
 
 Xem [tài liệu Lesson 25](docs/lessons/25-idempotent-inbox.md).
 
+Lesson 26 giới hạn consumer-processing retry qua hai delay topic rồi giữ poison message trong DLT. Transient
+failure đi qua `retry.1` và `retry.2`; contract/validation failure đi thẳng DLT. Original key, bytes và envelope
+identity được giữ nguyên, metadata chỉ dùng safe error code. Offset nguồn chỉ commit sau business success,
+Inbox duplicate hoặc retry/DLT publish đã được Kafka ACK. Xem
+[tài liệu Lesson 26](docs/lessons/26-retry-and-dead-letter.md) và
+[DLT replay runbook](docs/operations/kafka-dead-letter-replay.md).
+
 Dọn containers và database volume local:
 
 ```bash
@@ -143,6 +150,7 @@ Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên data
 - [Lesson 23 — Transactional Outbox](docs/lessons/23-transactional-outbox.md)
 - [Lesson 24 — Publish leased Outbox batches](docs/lessons/24-outbox-publisher.md)
 - [Lesson 25 — Idempotent Inbox và Kafka fulfillment](docs/lessons/25-idempotent-inbox.md)
+- [Lesson 26 — Bounded retry và Dead-Letter Topic](docs/lessons/26-retry-and-dead-letter.md)
 
 ## Nhánh Git
 
