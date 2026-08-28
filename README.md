@@ -98,6 +98,12 @@ Inbox duplicate hoặc retry/DLT publish đã được Kafka ACK. Xem
 [tài liệu Lesson 26](docs/lessons/26-retry-and-dead-letter.md) và
 [DLT replay runbook](docs/operations/kafka-dead-letter-replay.md).
 
+Lesson 27 tạo server-owned correlation tại HTTP boundary rồi snapshot identity vào từng module Outbox.
+Business event mới giữ workflow correlation và dùng inbound `MessageId` làm direct causation; retry vẫn giữ
+nguyên identity. Kafka headers, consumer scope, structured logs và SignalR notifications cùng mang chuỗi này,
+còn trace context được giữ riêng để Lesson 29 instrument. Xem
+[tài liệu Lesson 27](docs/lessons/27-correlation-and-causation.md).
+
 Dọn containers và database volume local:
 
 ```bash
@@ -151,6 +157,7 @@ Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên data
 - [Lesson 24 — Publish leased Outbox batches](docs/lessons/24-outbox-publisher.md)
 - [Lesson 25 — Idempotent Inbox và Kafka fulfillment](docs/lessons/25-idempotent-inbox.md)
 - [Lesson 26 — Bounded retry và Dead-Letter Topic](docs/lessons/26-retry-and-dead-letter.md)
+- [Lesson 27 — Correlation và causation xuyên HTTP/Kafka](docs/lessons/27-correlation-and-causation.md)
 
 ## Nhánh Git
 

@@ -36,6 +36,7 @@ public sealed class KafkaJsonRoundTripTests(KafkaFixture fixture)
         await publisher.PublishAsync(
             expected.Payload.OrderId.ToString("D"),
             expected,
+            IdentityFor(expected),
             cancellationToken);
 
         var received = await handler.ReadAsync(cancellationToken);
@@ -65,6 +66,7 @@ public sealed class KafkaJsonRoundTripTests(KafkaFixture fixture)
             await publisher.PublishAsync(
                 first.Payload.OrderId.ToString("D"),
                 first,
+                IdentityFor(first),
                 cancellationToken);
 
             var received = await firstHandler.ReadAsync(cancellationToken);
@@ -92,6 +94,7 @@ public sealed class KafkaJsonRoundTripTests(KafkaFixture fixture)
             await publisher.PublishAsync(
                 second.Payload.OrderId.ToString("D"),
                 second,
+                IdentityFor(second),
                 cancellationToken);
 
             var received = await secondHandler.ReadAsync(cancellationToken);
@@ -100,6 +103,39 @@ public sealed class KafkaJsonRoundTripTests(KafkaFixture fixture)
             using var stopTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             await secondHost.StopAsync(stopTimeout.Token);
         }
+    }
+
+    [Fact]
+    public async Task Hosted_consumer_establishes_message_identity_for_handler()
+    {
+        using var testTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var cancellationToken = testTimeout.Token;
+        var runId = Guid.NewGuid().ToString("N");
+        var topicPrefix = $"coffeeshop-{runId}";
+        await CreateTopicAsync($"{topicPrefix}.orders.v1");
+        using var host = BuildIdentityHost(topicPrefix, $"lesson27-{runId}");
+        await host.StartAsync(cancellationToken);
+        var envelope = CreateEnvelope(Guid.NewGuid());
+        var publicationIdentity = new MessageIdentity(
+            envelope.CorrelationId,
+            envelope.CausationId,
+            "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+            "lesson27=green");
+        var publisher = host.Services.GetRequiredService<IIntegrationEventPublisher>();
+
+        await publisher.PublishAsync(
+            envelope.Payload.OrderId.ToString("D"),
+            envelope,
+            publicationIdentity,
+            cancellationToken);
+        var handler = host.Services.GetRequiredService<IdentityRecordingHandler>();
+        var observed = await handler.ReadAsync(cancellationToken);
+
+        Assert.Equal(envelope.CorrelationId, observed.CorrelationId);
+        Assert.Equal(envelope.MessageId.ToString("D"), observed.CausationId);
+        Assert.Equal(publicationIdentity.TraceParent, observed.TraceParent);
+        Assert.Equal(publicationIdentity.TraceState, observed.TraceState);
+        await host.StopAsync(CancellationToken.None);
     }
 
     private IHost BuildHost(
@@ -116,6 +152,21 @@ public sealed class KafkaJsonRoundTripTests(KafkaFixture fixture)
         });
         builder.Services.AddSingleton(handler);
         builder.Services.AddKafkaConsumer<OrderPlacedV1, RecordingOrderPlacedHandler>("lesson22");
+        return builder.Build();
+    }
+
+    private IHost BuildIdentityHost(string topicPrefix, string groupPrefix)
+    {
+        var builder = Host.CreateApplicationBuilder();
+        builder.Services.AddSingleton<IMessageIdentityAccessor, MessageIdentityAccessor>();
+        builder.Services.AddKafkaMessaging(options =>
+        {
+            options.BootstrapServers = fixture.BootstrapServers;
+            options.TopicPrefix = topicPrefix;
+            options.ConsumerGroupPrefix = groupPrefix;
+        });
+        builder.Services.AddSingleton<IdentityRecordingHandler>();
+        builder.Services.AddKafkaConsumer<OrderPlacedV1, IdentityRecordingHandler>("lesson27");
         return builder.Build();
     }
 
@@ -147,6 +198,10 @@ public sealed class KafkaJsonRoundTripTests(KafkaFixture fixture)
                 Guid.NewGuid(),
                 [new OrderLineItemV1(Guid.NewGuid(), "Latte", "Barista")]));
 
+    private static MessageIdentity IdentityFor(
+        IntegrationEventEnvelope<OrderPlacedV1> envelope) =>
+        new(envelope.CorrelationId, envelope.CausationId, null, null);
+
     private sealed class RecordingOrderPlacedHandler
         : IIntegrationEventHandler<OrderPlacedV1>
     {
@@ -169,6 +224,24 @@ public sealed class KafkaJsonRoundTripTests(KafkaFixture fixture)
             timeout.CancelAfter(TimeSpan.FromSeconds(20));
             return await _messages.Reader.ReadAsync(timeout.Token);
         }
+    }
+
+    private sealed class IdentityRecordingHandler(IMessageIdentityAccessor identityAccessor)
+        : IIntegrationEventHandler<OrderPlacedV1>
+    {
+        private readonly Channel<MessageIdentity> _messages =
+            Channel.CreateUnbounded<MessageIdentity>();
+
+        public async Task HandleAsync(
+            IntegrationEventEnvelope<OrderPlacedV1> message,
+            IntegrationMessageContext context,
+            CancellationToken cancellationToken)
+        {
+            await _messages.Writer.WriteAsync(identityAccessor.Current, cancellationToken);
+        }
+
+        public async Task<MessageIdentity> ReadAsync(CancellationToken cancellationToken) =>
+            await _messages.Reader.ReadAsync(cancellationToken);
     }
 
     private sealed record ReceivedMessage(

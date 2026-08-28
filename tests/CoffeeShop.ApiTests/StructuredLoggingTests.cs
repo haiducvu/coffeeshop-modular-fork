@@ -26,6 +26,8 @@ public sealed class StructuredLoggingTests
         using var client = factory.CreateClient();
 
         using var response = await client.GetAsync("/");
+        var correlationId = Assert.Single(
+            response.Headers.GetValues("X-Correlation-ID"));
         var requestEvent = Assert.Single(
             sink.Events,
             logEvent => HasScalar(logEvent, "RequestPath", "/"));
@@ -40,6 +42,11 @@ public sealed class StructuredLoggingTests
         Assert.Equal("/", properties.GetProperty("RequestPath").GetString());
         Assert.Equal(200, properties.GetProperty("StatusCode").GetInt32());
         Assert.False(string.IsNullOrWhiteSpace(properties.GetProperty("TraceId").GetString()));
+        Assert.Equal(
+            correlationId,
+            properties.GetProperty("CorrelationId").GetString());
+        Assert.False(properties.TryGetProperty("CausationId", out var causation)
+            && causation.ValueKind != JsonValueKind.Null);
     }
 
     [Fact]

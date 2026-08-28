@@ -221,6 +221,11 @@ public sealed class KafkaRetryAndDeadLetterTests(KafkaFixture fixture)
         await publisher.PublishAsync(
             envelope.Payload.OrderId.ToString("D"),
             envelope,
+            new MessageIdentity(
+                envelope.CorrelationId,
+                envelope.CausationId,
+                null,
+                null),
             cancellationToken);
     }
 

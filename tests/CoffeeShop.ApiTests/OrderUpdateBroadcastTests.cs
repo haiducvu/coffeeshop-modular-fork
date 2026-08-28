@@ -1,6 +1,7 @@
 using CoffeeShop.Api.Realtime;
 using CoffeeShop.Contracts.Menu;
 using CoffeeShop.Contracts.Orders;
+using CoffeeShop.Messaging.Abstractions;
 using Microsoft.AspNetCore.SignalR;
 
 namespace CoffeeShop.ApiTests;
@@ -12,9 +13,13 @@ public sealed class OrderUpdateBroadcastTests
     {
         var client = new RecordingOrderUpdatesClient();
         var occurredAt = DateTimeOffset.Parse("2026-08-09T10:00:00Z");
+        var identityAccessor = new MessageIdentityAccessor();
+        var identity = CreateIdentity(null);
+        using var identityScope = identityAccessor.Push(identity);
         var publisher = new SignalROrderUpdatePublisher(
             new RecordingHubContext(client),
-            new FixedTimeProvider(occurredAt));
+            new FixedTimeProvider(occurredAt),
+            identityAccessor);
         var accepted = new OrderItemAccepted(
             Guid.NewGuid(),
             Guid.NewGuid(),
@@ -30,15 +35,21 @@ public sealed class OrderUpdateBroadcastTests
         Assert.Equal("InProgress", message.OrderStatus);
         Assert.Null(message.MadeBy);
         Assert.Equal(occurredAt, message.OccurredAt);
+        Assert.Equal(identity.CorrelationId, message.CorrelationId);
+        Assert.Null(message.CausationId);
     }
 
     [Fact]
     public async Task Broadcasts_the_final_fulfilled_order_status()
     {
         var client = new RecordingOrderUpdatesClient();
+        var identityAccessor = new MessageIdentityAccessor();
+        var identity = CreateIdentity("22222222-2222-2222-2222-222222222222");
+        using var identityScope = identityAccessor.Push(identity);
         var publisher = new SignalROrderUpdatePublisher(
             new RecordingHubContext(client),
-            new FixedTimeProvider(DateTimeOffset.UnixEpoch));
+            new FixedTimeProvider(DateTimeOffset.UnixEpoch),
+            identityAccessor);
         var updated = new OrderUpdated(
             Guid.NewGuid(),
             Guid.NewGuid(),
@@ -55,7 +66,15 @@ public sealed class OrderUpdateBroadcastTests
         Assert.Equal("Fulfilled", message.OrderStatus);
         Assert.Equal("kitchen", message.MadeBy);
         Assert.Equal(updated.OccurredAt, message.OccurredAt);
+        Assert.Equal(identity.CorrelationId, message.CorrelationId);
+        Assert.Equal(identity.CausationId, message.CausationId);
     }
+
+    private static MessageIdentity CreateIdentity(string? causationId) => new(
+        "27111111-1111-1111-1111-111111111111",
+        causationId,
+        null,
+        null);
 
     private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
     {

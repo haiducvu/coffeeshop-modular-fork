@@ -138,6 +138,9 @@ namespace CoffeeShop.Modules.Barista.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("PublishedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTimeOffset?>("RejectedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("TraceParent")
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");

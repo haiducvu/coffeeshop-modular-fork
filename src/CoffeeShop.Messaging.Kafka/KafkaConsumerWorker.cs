@@ -12,6 +12,7 @@ namespace CoffeeShop.Messaging.Kafka;
 internal sealed class KafkaConsumerWorker<TPayload>(
     IOptions<KafkaMessagingOptions> options,
     KafkaIntegrationEventMapper mapper,
+    KafkaMessageIdentityScope messageIdentityScope,
     KafkaRetryRouter retryRouter,
     IServiceScopeFactory scopeFactory,
     ILogger<KafkaConsumerWorker<TPayload>> logger,
@@ -50,6 +51,25 @@ internal sealed class KafkaConsumerWorker<TPayload>(
                                 consumed.Message,
                                 stoppingToken);
                             var envelope = mapper.FromMessage<TPayload>(consumed.Message);
+                            var deliveryAttempt = retryRouter.ResolveDeliveryAttempt(
+                                originalTopic,
+                                consumed.Topic);
+                            using var identityScope = messageIdentityScope.Push(
+                                envelope,
+                                consumed.Message.Headers);
+                            using var logScope = logger.BeginScope(
+                                new Dictionary<string, object?>
+                                {
+                                    ["EventType"] = envelope.EventType,
+                                    ["EventVersion"] = envelope.EventVersion,
+                                    ["Topic"] = consumed.Topic,
+                                    ["Partition"] = consumed.Partition.Value,
+                                    ["Offset"] = consumed.Offset.Value,
+                                    ["MessageId"] = envelope.MessageId,
+                                    ["CorrelationId"] = envelope.CorrelationId,
+                                    ["CausationId"] = envelope.CausationId,
+                                    ["DeliveryAttempt"] = deliveryAttempt
+                                });
                             await using var scope = scopeFactory.CreateAsyncScope();
                             var handler = scope.ServiceProvider.GetRequiredKeyedService<
                                 IIntegrationEventHandler<TPayload>>(consumerRole);
@@ -58,10 +78,11 @@ internal sealed class KafkaConsumerWorker<TPayload>(
                                 new IntegrationMessageContext(
                                     consumerRole,
                                     consumed.TopicPartitionOffset.ToString(),
-                                    retryRouter.ResolveDeliveryAttempt(
-                                        originalTopic,
-                                        consumed.Topic)),
+                                    deliveryAttempt),
                                 stoppingToken);
+                            logger.LogInformation(
+                                "Kafka consumer {ConsumerRole} handled integration event.",
+                                consumerRole);
                         }
                         catch (OperationCanceledException)
                         {

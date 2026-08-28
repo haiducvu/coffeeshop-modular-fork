@@ -128,6 +128,7 @@ public static class CounterModuleServiceCollectionExtensions
     private static void AddCoreServices(IServiceCollection services)
     {
         services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<IMessageIdentityAccessor, MessageIdentityAccessor>();
         services.TryAddSingleton<FulfillmentCacheGate>();
         services.AddScoped<IValidator<PlaceOrderInput>, PlaceOrderValidator>();
         services.AddScoped<PlaceOrderHandler>();

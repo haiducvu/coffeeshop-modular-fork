@@ -51,6 +51,7 @@ public sealed class KafkaRetryRouterTests
         Assert.Equal(
             Start.AddSeconds(6),
             ReadInstant(retryTwo.Message, KafkaHeaderNames.NotBefore));
+        AssertOriginalRecordWasPreserved(original, retryTwo.Message);
 
         await router.DelayIfNeededAsync(
             "lesson26.orders.v1",
@@ -71,6 +72,7 @@ public sealed class KafkaRetryRouterTests
         Assert.Equal("lesson26.orders.v1.dlt", deadLetter.Topic);
         Assert.Equal("3", ReadHeader(deadLetter.Message, KafkaHeaderNames.DeliveryAttempt));
         Assert.Null(FindHeader(deadLetter.Message, KafkaHeaderNames.NotBefore));
+        AssertOriginalRecordWasPreserved(original, deadLetter.Message);
         var metadata = DeadLetterMetadata.FromHeaders(deadLetter.Message.Headers);
         Assert.Equal("lesson26.orders.v1", metadata.OriginalTopic);
         Assert.Equal(4, metadata.OriginalPartition);
@@ -290,6 +292,9 @@ public sealed class KafkaRetryRouterTests
         {
             { KafkaHeaderNames.MessageId, Encoding.UTF8.GetBytes("11111111-1111-1111-1111-111111111111") },
             { KafkaHeaderNames.CorrelationId, Encoding.UTF8.GetBytes("workflow-42") },
+            { KafkaHeaderNames.CausationId, Encoding.UTF8.GetBytes("00000000-0000-0000-0000-000000000042") },
+            { KafkaHeaderNames.TraceParent, Encoding.UTF8.GetBytes("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01") },
+            { KafkaHeaderNames.TraceState, Encoding.UTF8.GetBytes("lesson27=green") },
             { KafkaHeaderNames.ContentType, Encoding.UTF8.GetBytes("application/json") }
         }
     };
@@ -306,6 +311,15 @@ public sealed class KafkaRetryRouterTests
         Assert.Equal(
             ReadHeader(original.Message, KafkaHeaderNames.CorrelationId),
             ReadHeader(forwarded, KafkaHeaderNames.CorrelationId));
+        Assert.Equal(
+            ReadHeader(original.Message, KafkaHeaderNames.CausationId),
+            ReadHeader(forwarded, KafkaHeaderNames.CausationId));
+        Assert.Equal(
+            ReadHeader(original.Message, KafkaHeaderNames.TraceParent),
+            ReadHeader(forwarded, KafkaHeaderNames.TraceParent));
+        Assert.Equal(
+            ReadHeader(original.Message, KafkaHeaderNames.TraceState),
+            ReadHeader(forwarded, KafkaHeaderNames.TraceState));
     }
 
     private static DateTimeOffset ReadInstant(

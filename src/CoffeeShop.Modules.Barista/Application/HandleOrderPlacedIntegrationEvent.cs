@@ -70,9 +70,7 @@ internal sealed class HandleOrderPlacedIntegrationEvent(
                     prepared.Station.ToString(),
                     prepared.MadeBy,
                     prepared.OccurredAt),
-                prepared.OccurredAt,
-                message.CorrelationId,
-                message.MessageId.ToString("D"));
+                prepared.OccurredAt);
         }
 
         await inbox.CompleteAsync(

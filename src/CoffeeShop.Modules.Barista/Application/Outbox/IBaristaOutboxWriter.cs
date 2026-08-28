@@ -6,7 +6,5 @@ internal interface IBaristaOutboxWriter
 {
     void Enqueue(
         OrderItemPreparedV1 payload,
-        DateTimeOffset occurredAtUtc,
-        string correlationId,
-        string causationId);
+        DateTimeOffset occurredAtUtc);
 }

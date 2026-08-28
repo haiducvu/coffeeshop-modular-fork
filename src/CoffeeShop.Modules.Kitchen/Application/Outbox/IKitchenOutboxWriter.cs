@@ -6,7 +6,5 @@ internal interface IKitchenOutboxWriter
 {
     void Enqueue(
         OrderItemPreparedV1 payload,
-        DateTimeOffset occurredAtUtc,
-        string correlationId,
-        string causationId);
+        DateTimeOffset occurredAtUtc);
 }

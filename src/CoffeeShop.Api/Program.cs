@@ -2,6 +2,7 @@ using System.Security.Claims;
 using CoffeeShop.Api.Authorization;
 using CoffeeShop.Api.Authentication;
 using CoffeeShop.Api.Configuration;
+using CoffeeShop.Api.Correlation;
 using CoffeeShop.Api.Events;
 using CoffeeShop.Api.Errors;
 using CoffeeShop.Api.Features.Orders.GetFulfilled;
@@ -15,6 +16,7 @@ using CoffeeShop.Api.Realtime;
 using CoffeeShop.Api.Time;
 using CoffeeShop.Contracts.Orders;
 using CoffeeShop.IntegrationContracts.Orders;
+using CoffeeShop.Messaging.Abstractions;
 using CoffeeShop.Modules.Barista;
 using CoffeeShop.Modules.Barista.Infrastructure.Outbox;
 using CoffeeShop.Modules.Counter;
@@ -67,6 +69,7 @@ builder.Services.AddSerilog((services, logger) => logger
     writeToProviders: true);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<CoffeeShopExceptionHandler>();
+builder.Services.AddSingleton<IMessageIdentityAccessor, MessageIdentityAccessor>();
 var authenticationEnabled = builder.Services.AddCoffeeShopAuthentication(builder.Configuration);
 if (authenticationEnabled)
 {
@@ -174,6 +177,7 @@ if (authenticationEnabled
 
 var app = builder.Build();
 
+app.UseMiddleware<CorrelationMiddleware>();
 app.UseSerilogRequestLogging(options =>
 {
     options.Logger = app.Services.GetRequiredService<Serilog.ILogger>();

@@ -82,6 +82,11 @@ public sealed class CounterOutboxKafkaTests(
         await transport.PublishAsync(
             crashEnvelope.Payload.OrderId.ToString("D"),
             crashEnvelope,
+            new MessageIdentity(
+                claimed.CorrelationId,
+                claimed.CausationId,
+                claimed.TraceParent,
+                claimed.TraceState),
             cancellationToken);
         var firstAttempt = ConsumeEnvelope(consumer, cancellationToken);
         Assert.Equal(crashOrderId, firstAttempt.Payload.OrderId);
@@ -97,6 +102,57 @@ public sealed class CounterOutboxKafkaTests(
             cancellationToken);
         Assert.NotNull(republished.PublishedAtUtc);
         Assert.Null(republished.LeaseId);
+    }
+
+    [Fact]
+    public async Task Invalid_contract_row_is_rejected_and_never_reclaimed()
+    {
+        using var testTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var cancellationToken = testTimeout.Token;
+        await postgres.ResetAsync();
+        var timeProvider = new MutableTimeProvider(
+            DateTimeOffset.Parse("2026-08-28T09:30:00+00:00"));
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<TimeProvider>(timeProvider);
+        services.AddSingleton<IDomainEventDispatcher, NoOpDomainEventDispatcher>();
+        services.AddCounterModule(postgres.ConnectionString);
+        await using var provider = services.BuildServiceProvider();
+        await provider.MigrateCounterModuleAsync(cancellationToken);
+        await PlaceOrderAsync(provider, cancellationToken);
+
+        await using var publisherScope = provider.CreateAsyncScope();
+        var dbContext = publisherScope.ServiceProvider.GetRequiredService<CounterDbContext>();
+        var messageId = await dbContext.OutboxMessages
+            .Select(message => message.MessageId)
+            .SingleAsync(cancellationToken);
+        await dbContext.Database.ExecuteSqlInterpolatedAsync(
+            $"""
+            UPDATE counter.outbox_messages
+            SET "CorrelationId" = {"33333333-3333-3333-3333-333333333333"}
+            WHERE "MessageId" = {messageId}
+            """,
+            cancellationToken);
+        dbContext.ChangeTracker.Clear();
+
+        var publisher = new CounterOutboxPublisher(
+            new CounterOutboxStore(dbContext),
+            new RejectUnexpectedPublish(),
+            Options.Create(CreateOptions()),
+            timeProvider,
+            publisherScope.ServiceProvider.GetRequiredService<ILogger<CounterOutboxPublisher>>());
+
+        Assert.Equal(1, await publisher.PublishBatchAsync(cancellationToken));
+        dbContext.ChangeTracker.Clear();
+        var rejected = await dbContext.OutboxMessages.SingleAsync(cancellationToken);
+        Assert.Equal(timeProvider.GetUtcNow(), rejected.RejectedAtUtc);
+        Assert.Equal("invalid-contract", rejected.LastErrorCode);
+        Assert.Null(rejected.PublishedAtUtc);
+        Assert.Null(rejected.LeaseId);
+        Assert.Equal(0, rejected.Attempts);
+
+        timeProvider.Advance(TimeSpan.FromHours(1));
+        Assert.Equal(0, await publisher.PublishBatchAsync(cancellationToken));
     }
 
     private async Task CreateTopicAsync(string topic)
@@ -128,6 +184,12 @@ public sealed class CounterOutboxKafkaTests(
         IServiceProvider provider,
         CancellationToken cancellationToken)
     {
+        var identityAccessor = provider.GetRequiredService<IMessageIdentityAccessor>();
+        using var identityScope = identityAccessor.Push(new MessageIdentity(
+            Guid.NewGuid().ToString("D"),
+            null,
+            null,
+            null));
         await using var scope = provider.CreateAsyncScope();
         var handler = scope.ServiceProvider.GetRequiredService<PlaceOrderHandler>();
         var result = await handler.HandleAsync(
@@ -166,6 +228,18 @@ public sealed class CounterOutboxKafkaTests(
         public Task DispatchAsync(
             IReadOnlyCollection<IDomainEvent> events,
             CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class RejectUnexpectedPublish : IIntegrationEventPublisher
+    {
+        public Task PublishAsync<TPayload>(
+            string key,
+            IntegrationEventEnvelope<TPayload> message,
+            MessageIdentity identity,
+            CancellationToken cancellationToken)
+            where TPayload : IIntegrationEvent =>
+            throw new Xunit.Sdk.XunitException(
+                "A rejected Outbox contract must not reach the Kafka transport.");
     }
 
     private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider

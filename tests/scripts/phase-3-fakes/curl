@@ -7,6 +7,7 @@ url=""
 data=""
 authorization=""
 scope=""
+dump_header=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --request)
@@ -29,6 +30,10 @@ while [ "$#" -gt 0 ]; do
     --connect-timeout|--max-time)
       shift
       ;;
+    --dump-header)
+      dump_header="$2"
+      shift
+      ;;
     --fail|--silent|--show-error)
       ;;
     *)
@@ -41,6 +46,13 @@ done
 trace() {
   if [ -n "${FAKE_PHASE3_TRACE:-}" ]; then
     printf '%s\n' "$1" >> "$FAKE_PHASE3_TRACE"
+  fi
+}
+
+write_correlation_header() {
+  if [ -n "$dump_header" ]; then
+    printf 'HTTP/1.1 200 OK\r\nX-Correlation-ID: 27111111-1111-1111-1111-111111111111\r\n\r\n' \
+      > "$dump_header"
   fi
 }
 
@@ -73,6 +85,7 @@ case "$url" in
     trace "POST order-v1"
     loyalty="$(printf '%s' "$data" | sed -n 's/.*"loyaltyMemberId":"\([^"]*\)".*/\1/p')"
     printf '%s' "$loyalty" > "${FAKE_PHASE3_STATE:?}"
+    write_correlation_header
     printf '%s' '{}'
     ;;
   */v1/api/fulfillment-orders)
@@ -93,6 +106,7 @@ case "$url" in
       exit 22
     fi
     printf '%s' "$loyalty" > "${FAKE_PHASE3_STATE:?}"
+    write_correlation_header
     trace "POST order-v2 authenticated"
     printf '%s' '{"orderId":"7a97d7bf-f7e3-4294-9d5c-b95b957342c5","status":"InProgress"}'
     ;;

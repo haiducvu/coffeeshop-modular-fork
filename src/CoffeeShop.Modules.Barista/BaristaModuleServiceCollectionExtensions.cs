@@ -20,6 +20,7 @@ public static class BaristaModuleServiceCollectionExtensions
         Action<BaristaOutboxOptions>? configureOutbox = null)
     {
         services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<IMessageIdentityAccessor, MessageIdentityAccessor>();
         services.AddDbContext<BaristaDbContext>(options => ConfigureDatabase(
             options,
             connectionString,

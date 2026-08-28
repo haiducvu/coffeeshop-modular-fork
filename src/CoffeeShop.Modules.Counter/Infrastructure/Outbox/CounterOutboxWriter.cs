@@ -1,13 +1,15 @@
-using System.Diagnostics;
 using System.Text.Json;
 using CoffeeShop.IntegrationContracts;
 using CoffeeShop.IntegrationContracts.Orders;
+using CoffeeShop.Messaging.Abstractions;
 using CoffeeShop.Modules.Counter.Application.Outbox;
 using CoffeeShop.Modules.Counter.Infrastructure.Persistence;
 
 namespace CoffeeShop.Modules.Counter.Infrastructure.Outbox;
 
-internal sealed class CounterOutboxWriter(CounterDbContext dbContext)
+internal sealed class CounterOutboxWriter(
+    CounterDbContext dbContext,
+    IMessageIdentityAccessor identityAccessor)
     : ICounterOutboxWriter
 {
     private static readonly JsonSerializerOptions SerializerOptions =
@@ -19,19 +21,15 @@ internal sealed class CounterOutboxWriter(CounterDbContext dbContext)
     public void Enqueue(OrderPlacedV1 payload, DateTimeOffset occurredAtUtc)
     {
         var messageId = Guid.NewGuid();
-        var correlationId = messageId.ToString("D");
+        var identity = identityAccessor.Current;
         var envelope = new IntegrationEventEnvelope<OrderPlacedV1>(
             messageId,
             OrderPlacedV1.EventType,
             OrderPlacedV1.EventVersion,
             occurredAtUtc,
-            correlationId,
-            null,
+            identity.CorrelationId,
+            identity.CausationId,
             payload);
-        var activity = Activity.Current;
-        var traceParent = activity?.IdFormat == ActivityIdFormat.W3C
-            ? activity.Id
-            : null;
 
         dbContext.OutboxMessages.Add(new CounterOutboxMessage(
             messageId,
@@ -41,7 +39,7 @@ internal sealed class CounterOutboxWriter(CounterDbContext dbContext)
             envelope.OccurredAtUtc,
             envelope.CorrelationId,
             envelope.CausationId,
-            traceParent,
-            activity?.TraceStateString));
+            identity.TraceParent,
+            identity.TraceState));
     }
 }

@@ -1,13 +1,15 @@
-using System.Diagnostics;
 using System.Text.Json;
 using CoffeeShop.IntegrationContracts;
 using CoffeeShop.IntegrationContracts.Orders;
+using CoffeeShop.Messaging.Abstractions;
 using CoffeeShop.Modules.Kitchen.Application.Outbox;
 using CoffeeShop.Modules.Kitchen.Infrastructure.Persistence;
 
 namespace CoffeeShop.Modules.Kitchen.Infrastructure.Outbox;
 
-internal sealed class KitchenOutboxWriter(KitchenDbContext dbContext)
+internal sealed class KitchenOutboxWriter(
+    KitchenDbContext dbContext,
+    IMessageIdentityAccessor identityAccessor)
     : IKitchenOutboxWriter
 {
     private static readonly JsonSerializerOptions SerializerOptions =
@@ -18,23 +20,18 @@ internal sealed class KitchenOutboxWriter(KitchenDbContext dbContext)
 
     public void Enqueue(
         OrderItemPreparedV1 payload,
-        DateTimeOffset occurredAtUtc,
-        string correlationId,
-        string causationId)
+        DateTimeOffset occurredAtUtc)
     {
         var messageId = Guid.NewGuid();
+        var identity = identityAccessor.Current;
         var envelope = new IntegrationEventEnvelope<OrderItemPreparedV1>(
             messageId,
             OrderItemPreparedV1.EventType,
             OrderItemPreparedV1.EventVersion,
             occurredAtUtc,
-            correlationId,
-            causationId,
+            identity.CorrelationId,
+            identity.CausationId,
             payload);
-        var activity = Activity.Current;
-        var traceParent = activity?.IdFormat == ActivityIdFormat.W3C
-            ? activity.Id
-            : null;
 
         dbContext.OutboxMessages.Add(new KitchenOutboxMessage(
             messageId,
@@ -44,7 +41,7 @@ internal sealed class KitchenOutboxWriter(KitchenDbContext dbContext)
             envelope.OccurredAtUtc,
             envelope.CorrelationId,
             envelope.CausationId,
-            traceParent,
-            activity?.TraceStateString));
+            identity.TraceParent,
+            identity.TraceState));
     }
 }

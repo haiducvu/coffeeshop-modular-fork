@@ -28,13 +28,14 @@ internal sealed class KafkaIntegrationEventPublisher : IIntegrationEventPublishe
     public async Task PublishAsync<TPayload>(
         string key,
         IntegrationEventEnvelope<TPayload> message,
+        MessageIdentity identity,
         CancellationToken cancellationToken)
         where TPayload : IIntegrationEvent
     {
         var topic = KafkaTopicResolver.Resolve<TPayload>(_options.TopicPrefix);
         await _producer.ProduceAsync(
             topic,
-            _mapper.ToMessage(key, message),
+            _mapper.ToMessage(key, message, identity),
             cancellationToken);
     }
 

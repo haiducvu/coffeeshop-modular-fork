@@ -2,6 +2,7 @@ using Confluent.Kafka;
 using Confluent.Kafka.Admin;
 using CoffeeShop.Contracts.Orders;
 using CoffeeShop.IntegrationContracts.Orders;
+using CoffeeShop.Messaging.Abstractions;
 using CoffeeShop.Messaging.Kafka;
 using CoffeeShop.Modules.Barista;
 using CoffeeShop.Modules.Barista.Infrastructure.Outbox;
@@ -69,8 +70,14 @@ public sealed class KafkaFulfillmentWorkflowTests(
         try
         {
             Guid orderId;
-            await using (var scope = host.Services.CreateAsyncScope())
+            var identityAccessor = host.Services.GetRequiredService<IMessageIdentityAccessor>();
+            using (identityAccessor.Push(new MessageIdentity(
+                Guid.NewGuid().ToString("D"),
+                null,
+                null,
+                null)))
             {
+                await using var scope = host.Services.CreateAsyncScope();
                 var counter = scope.ServiceProvider.GetRequiredService<ICounterModule>();
                 orderId = (await counter.PlaceOrderAsync(
                     new PlaceOrderInput(0, 0, Guid.NewGuid(), [5], [6]),

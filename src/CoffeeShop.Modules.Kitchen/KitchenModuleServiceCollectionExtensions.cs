@@ -20,6 +20,7 @@ public static class KitchenModuleServiceCollectionExtensions
         Action<KitchenOutboxOptions>? configureOutbox = null)
     {
         services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<IMessageIdentityAccessor, MessageIdentityAccessor>();
         services.AddDbContext<KitchenDbContext>(options => ConfigureDatabase(
             options,
             connectionString,

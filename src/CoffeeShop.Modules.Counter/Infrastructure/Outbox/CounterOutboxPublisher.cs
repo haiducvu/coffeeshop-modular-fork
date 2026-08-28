@@ -14,6 +14,7 @@ internal sealed class CounterOutboxPublisher(
     TimeProvider timeProvider,
     ILogger<CounterOutboxPublisher> logger)
 {
+    private const string InvalidContract = "invalid-contract";
     private const string PublishFailed = "publish-failed";
     private static readonly JsonSerializerOptions JsonOptions =
         new(JsonSerializerDefaults.Web)
@@ -42,11 +43,30 @@ internal sealed class CounterOutboxPublisher(
                 await transport.PublishAsync(
                     envelope.Payload.OrderId.ToString("D"),
                     envelope,
+                    new MessageIdentity(
+                        message.CorrelationId,
+                        message.CausationId,
+                        message.TraceParent,
+                        message.TraceState),
                     cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw;
+            }
+            catch (JsonException)
+            {
+                logger.LogError(
+                    "Counter outbox message {MessageId} was rejected with {ErrorCode}.",
+                    message.MessageId,
+                    InvalidContract);
+                await store.MarkRejectedAsync(
+                    message.MessageId,
+                    leaseId,
+                    InvalidContract,
+                    timeProvider.GetUtcNow(),
+                    cancellationToken);
+                continue;
             }
             catch
             {
@@ -73,7 +93,7 @@ internal sealed class CounterOutboxPublisher(
         return messages.Count;
     }
 
-    private static IntegrationEventEnvelope<OrderPlacedV1> Deserialize(
+    internal static IntegrationEventEnvelope<OrderPlacedV1> Deserialize(
         ClaimedOutboxMessage message)
     {
         if (!string.Equals(
@@ -91,7 +111,15 @@ internal sealed class CounterOutboxPublisher(
             ?? throw new JsonException("The counter outbox envelope cannot be null.");
         if (envelope.MessageId != message.MessageId
             || !string.Equals(envelope.EventType, message.EventType, StringComparison.Ordinal)
-            || envelope.EventVersion != message.EventVersion)
+            || envelope.EventVersion != message.EventVersion
+            || !string.Equals(
+                envelope.CorrelationId,
+                message.CorrelationId,
+                StringComparison.Ordinal)
+            || !string.Equals(
+                envelope.CausationId,
+                message.CausationId,
+                StringComparison.Ordinal))
         {
             throw new JsonException("The counter outbox envelope metadata does not match its row.");
         }

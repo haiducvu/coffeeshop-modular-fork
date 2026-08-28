@@ -14,6 +14,7 @@ internal sealed class BaristaOutboxPublisher(
     TimeProvider timeProvider,
     ILogger<BaristaOutboxPublisher> logger)
 {
+    private const string InvalidContract = "invalid-contract";
     private const string PublishFailed = "publish-failed";
     private static readonly JsonSerializerOptions JsonOptions =
         new(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = false };
@@ -37,11 +38,30 @@ internal sealed class BaristaOutboxPublisher(
                 await transport.PublishAsync(
                     envelope.Payload.OrderId.ToString("D"),
                     envelope,
+                    new MessageIdentity(
+                        message.CorrelationId,
+                        message.CausationId,
+                        message.TraceParent,
+                        message.TraceState),
                     cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw;
+            }
+            catch (JsonException)
+            {
+                logger.LogError(
+                    "Barista Outbox message {MessageId} was rejected with {ErrorCode}.",
+                    message.MessageId,
+                    InvalidContract);
+                await store.MarkRejectedAsync(
+                    message.MessageId,
+                    leaseId,
+                    InvalidContract,
+                    timeProvider.GetUtcNow(),
+                    cancellationToken);
+                continue;
             }
             catch
             {
@@ -68,7 +88,7 @@ internal sealed class BaristaOutboxPublisher(
         return messages.Count;
     }
 
-    private static IntegrationEventEnvelope<OrderItemPreparedV1> Deserialize(
+    internal static IntegrationEventEnvelope<OrderItemPreparedV1> Deserialize(
         ClaimedBaristaOutboxMessage message)
     {
         if (message.EventType != OrderItemPreparedV1.EventType
@@ -80,7 +100,17 @@ internal sealed class BaristaOutboxPublisher(
         var envelope = JsonSerializer.Deserialize<
             IntegrationEventEnvelope<OrderItemPreparedV1>>(message.EnvelopeJson, JsonOptions)
             ?? throw new JsonException("Barista Outbox envelope cannot be null.");
-        if (envelope.MessageId != message.MessageId)
+        if (envelope.MessageId != message.MessageId
+            || !string.Equals(envelope.EventType, message.EventType, StringComparison.Ordinal)
+            || envelope.EventVersion != message.EventVersion
+            || !string.Equals(
+                envelope.CorrelationId,
+                message.CorrelationId,
+                StringComparison.Ordinal)
+            || !string.Equals(
+                envelope.CausationId,
+                message.CausationId,
+                StringComparison.Ordinal))
         {
             throw new JsonException("Barista Outbox metadata does not match its row.");
         }

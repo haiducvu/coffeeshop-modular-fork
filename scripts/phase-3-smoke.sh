@@ -62,6 +62,9 @@ if ! command -v jq >/dev/null 2>&1; then
   fail "jq is required to validate JSON responses."
 fi
 
+response_headers="$(mktemp)"
+trap 'rm -f "$response_headers"' EXIT HUP INT TERM
+
 echo "Waiting for PostgreSQL, Redis, and Kafka readiness ..."
 while :; do
   set_request_timeout 5
@@ -120,6 +123,7 @@ if [ "$authentication_enabled" = true ]; then
     --connect-timeout "$request_timeout" \
     --max-time "$request_timeout" \
     --request POST \
+    --dump-header "$response_headers" \
     --header "Authorization: Bearer ${access_token}" \
     --header 'Content-Type: application/json' \
     --data "{\"orderSource\":0,\"location\":0,\"loyaltyMemberId\":\"${loyalty_member_id}\",\"baristaItems\":[5],\"kitchenItems\":[6]}" \
@@ -162,6 +166,7 @@ else
     --connect-timeout "$request_timeout" \
     --max-time "$request_timeout" \
     --request POST \
+    --dump-header "$response_headers" \
     --header 'Content-Type: application/json' \
     --data "{\"commandType\":0,\"orderSource\":0,\"location\":0,\"loyaltyMemberId\":\"${loyalty_member_id}\",\"baristaItems\":[{\"itemType\":5}],\"kitchenItems\":[{\"itemType\":6}],\"timestamp\":\"2026-08-08T00:00:00Z\"}" \
     "${api_url}/v1/api/orders" >/dev/null \
@@ -183,6 +188,15 @@ else
   done
 fi
 
+correlation_id="$(tr -d '\r' < "$response_headers" | awk -F ': *' '
+  tolower($1) == "x-correlation-id" { value = $2 }
+  END { print value }
+')"
+if ! printf '%s' "$correlation_id" | grep -Eq \
+    '^[[:xdigit:]]{8}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{12}$'; then
+  fail "The order response did not contain a canonical server correlation ID."
+fi
+
 if ! docker compose exec -T redis redis-cli --raw EXISTS fulfilled-orders:v1 \
   | grep -qx '1'; then
   fail "The fulfilled read model was not cached in Redis."
@@ -200,12 +214,49 @@ effect_counts="$(docker compose exec -T postgres psql \
       (SELECT COUNT(*) FROM kitchen.inbox_messages),
       (SELECT COUNT(*) FROM counter.inbox_messages),
       (SELECT
-        (SELECT COUNT(*) FROM counter.outbox_messages WHERE "PublishedAtUtc" IS NULL)
-        + (SELECT COUNT(*) FROM barista.outbox_messages WHERE "PublishedAtUtc" IS NULL)
-        + (SELECT COUNT(*) FROM kitchen.outbox_messages WHERE "PublishedAtUtc" IS NULL));
+        (SELECT COUNT(*) FROM counter.outbox_messages
+         WHERE "PublishedAtUtc" IS NULL AND "RejectedAtUtc" IS NULL)
+        + (SELECT COUNT(*) FROM barista.outbox_messages
+           WHERE "PublishedAtUtc" IS NULL AND "RejectedAtUtc" IS NULL)
+        + (SELECT COUNT(*) FROM kitchen.outbox_messages
+           WHERE "PublishedAtUtc" IS NULL AND "RejectedAtUtc" IS NULL)),
+      (SELECT
+        (SELECT COUNT(*) FROM counter.outbox_messages WHERE "RejectedAtUtc" IS NOT NULL)
+        + (SELECT COUNT(*) FROM barista.outbox_messages WHERE "RejectedAtUtc" IS NOT NULL)
+        + (SELECT COUNT(*) FROM kitchen.outbox_messages WHERE "RejectedAtUtc" IS NOT NULL));
   ' | tr -d '\r')" || fail "Messaging persistence state could not be queried."
-if [ "$effect_counts" != '1|1|1|1|2|0' ]; then
-  fail "Inbox, station, or published Outbox counts were unexpected."
+if [ "$effect_counts" != '1|1|1|1|2|0|0' ]; then
+  fail "Inbox, station, pending Outbox, or rejected Outbox counts were unexpected."
+fi
+
+identity_state="$(docker compose exec -T postgres psql \
+  -U "${POSTGRES_USER:-coffeeshop}" \
+  -d "${POSTGRES_DB:-coffeeshop}" \
+  -At -F '|' \
+  -c '
+    WITH root AS (
+      SELECT "MessageId", "CorrelationId", "CausationId", "TraceParent", "TraceState"
+      FROM counter.outbox_messages
+    ), children AS (
+      SELECT "CorrelationId", "CausationId", "TraceParent", "TraceState"
+      FROM barista.outbox_messages
+      UNION ALL
+      SELECT "CorrelationId", "CausationId", "TraceParent", "TraceState"
+      FROM kitchen.outbox_messages
+    )
+    SELECT root."CorrelationId",
+           root."CausationId" IS NULL,
+           root."TraceParent" IS NOT NULL,
+           (SELECT COUNT(*)
+            FROM children
+            WHERE children."CorrelationId" = root."CorrelationId"
+              AND children."CausationId" = root."MessageId"::text
+              AND children."TraceParent" IS NOT DISTINCT FROM root."TraceParent"
+              AND children."TraceState" IS NOT DISTINCT FROM root."TraceState")
+    FROM root;
+  ' | tr -d '\r')" || fail "Workflow identity state could not be queried."
+if [ "$identity_state" != "${correlation_id}|t|t|2" ]; then
+  fail "Correlation, causation, or trace identity did not stay continuous."
 fi
 
 read_dead_letter_count() {
@@ -239,4 +290,4 @@ while :; do
   wait_before_retry
 done
 
-echo "Phase 3 smoke test passed: fulfillment stayed idempotent and poison input reached DLT."
+echo "Phase 3 smoke test passed: workflow identity stayed continuous and poison input reached DLT."

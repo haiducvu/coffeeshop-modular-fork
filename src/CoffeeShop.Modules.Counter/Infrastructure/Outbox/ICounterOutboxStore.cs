@@ -21,6 +21,13 @@ internal interface ICounterOutboxStore
         string safeErrorCode,
         DateTimeOffset nextAttemptAt,
         CancellationToken cancellationToken);
+
+    Task MarkRejectedAsync(
+        Guid messageId,
+        Guid leaseId,
+        string safeErrorCode,
+        DateTimeOffset rejectedAtUtc,
+        CancellationToken cancellationToken);
 }
 
 internal sealed record ClaimedOutboxMessage(
@@ -28,5 +35,7 @@ internal sealed record ClaimedOutboxMessage(
     string EventType,
     int EventVersion,
     string EnvelopeJson,
+    string CorrelationId,
+    string? CausationId,
     string? TraceParent,
     string? TraceState);

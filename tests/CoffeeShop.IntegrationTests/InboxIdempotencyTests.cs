@@ -30,6 +30,11 @@ public sealed class InboxIdempotencyTests(PostgreSqlFixture fixture)
         DateTimeOffset.Parse("2026-08-27T08:09:10+00:00");
     private static readonly JsonSerializerOptions JsonOptions =
         new(JsonSerializerDefaults.Web);
+    private static readonly MessageIdentity RootIdentity = new(
+        "27111111-1111-1111-1111-111111111111",
+        null,
+        "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+        "lesson27=green");
 
     [Fact]
     public async Task Duplicate_deliveries_create_one_station_effect_and_one_counter_completion()
@@ -38,10 +43,12 @@ public sealed class InboxIdempotencyTests(PostgreSqlFixture fixture)
         var services = CreateServices();
         await using var provider = services.BuildServiceProvider();
         await MigrateAsync(provider);
+        var identityAccessor = provider.GetRequiredService<IMessageIdentityAccessor>();
 
         Guid orderId;
-        await using (var scope = provider.CreateAsyncScope())
+        using (identityAccessor.Push(RootIdentity))
         {
+            await using var scope = provider.CreateAsyncScope();
             var counter = scope.ServiceProvider.GetRequiredService<ICounterModule>();
             orderId = (await counter.PlaceOrderAsync(
                 new PlaceOrderInput(0, 0, Guid.NewGuid(), [5], [6]),
@@ -55,6 +62,10 @@ public sealed class InboxIdempotencyTests(PostgreSqlFixture fixture)
             placed = JsonSerializer.Deserialize<IntegrationEventEnvelope<OrderPlacedV1>>(
                 row.EnvelopeJson,
                 JsonOptions)!;
+            Assert.Equal(RootIdentity.CorrelationId, row.CorrelationId);
+            Assert.Null(row.CausationId);
+            Assert.Equal(RootIdentity.TraceParent, row.TraceParent);
+            Assert.Equal(RootIdentity.TraceState, row.TraceState);
         }
 
         await DeliverTwiceAsync<OrderPlacedV1>(provider, "barista", placed);
@@ -70,6 +81,10 @@ public sealed class InboxIdempotencyTests(PostgreSqlFixture fixture)
             var row = Assert.Single(await dbContext.OutboxMessages.ToListAsync());
             baristaPrepared = JsonSerializer.Deserialize<
                 IntegrationEventEnvelope<OrderItemPreparedV1>>(row.EnvelopeJson, JsonOptions)!;
+            Assert.Equal(RootIdentity.CorrelationId, row.CorrelationId);
+            Assert.Equal(placed.MessageId.ToString("D"), row.CausationId);
+            Assert.Equal(RootIdentity.TraceParent, row.TraceParent);
+            Assert.Equal(RootIdentity.TraceState, row.TraceState);
         }
 
         IntegrationEventEnvelope<OrderItemPreparedV1> kitchenPrepared;
@@ -82,6 +97,10 @@ public sealed class InboxIdempotencyTests(PostgreSqlFixture fixture)
             var row = Assert.Single(await dbContext.OutboxMessages.ToListAsync());
             kitchenPrepared = JsonSerializer.Deserialize<
                 IntegrationEventEnvelope<OrderItemPreparedV1>>(row.EnvelopeJson, JsonOptions)!;
+            Assert.Equal(RootIdentity.CorrelationId, row.CorrelationId);
+            Assert.Equal(placed.MessageId.ToString("D"), row.CausationId);
+            Assert.Equal(RootIdentity.TraceParent, row.TraceParent);
+            Assert.Equal(RootIdentity.TraceState, row.TraceState);
         }
 
         await DeliverTwiceAsync<OrderItemPreparedV1>(provider, "counter", baristaPrepared);
@@ -147,6 +166,7 @@ public sealed class InboxIdempotencyTests(PostgreSqlFixture fixture)
         services.AddLogging();
         services.AddSingleton<TimeProvider>(new FixedTimeProvider(Now));
         services.AddSingleton<IPreparationDelay, NoPreparationDelay>();
+        services.AddSingleton<IMessageIdentityAccessor, MessageIdentityAccessor>();
         services.AddScoped<IDomainEventDispatcher, NoOpDomainEventDispatcher>();
         services.AddCounterModule(fixture.ConnectionString);
         services.AddBaristaModule(fixture.ConnectionString);
@@ -169,6 +189,12 @@ public sealed class InboxIdempotencyTests(PostgreSqlFixture fixture)
     {
         for (var delivery = 1; delivery <= 2; delivery++)
         {
+            var identityAccessor = provider.GetRequiredService<IMessageIdentityAccessor>();
+            using var identityScope = identityAccessor.Push(new MessageIdentity(
+                envelope.CorrelationId,
+                envelope.MessageId.ToString("D"),
+                RootIdentity.TraceParent,
+                RootIdentity.TraceState));
             await using var scope = provider.CreateAsyncScope();
             var handler = scope.ServiceProvider.GetRequiredKeyedService<
                 IIntegrationEventHandler<TPayload>>(consumerRole);

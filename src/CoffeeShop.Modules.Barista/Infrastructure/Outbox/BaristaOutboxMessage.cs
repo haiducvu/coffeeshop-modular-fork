@@ -43,5 +43,6 @@ internal sealed class BaristaOutboxMessage
     public Guid? LeaseId { get; private set; }
     public DateTimeOffset? LeaseExpiresAtUtc { get; private set; }
     public DateTimeOffset? PublishedAtUtc { get; private set; }
+    public DateTimeOffset? RejectedAtUtc { get; private set; }
     public string? LastErrorCode { get; private set; }
 }

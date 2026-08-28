@@ -9,6 +9,7 @@ namespace CoffeeShop.Modules.Counter.Infrastructure.Outbox;
 internal sealed class CounterOutboxStore(CounterDbContext dbContext)
     : ICounterOutboxStore
 {
+    private const string InvalidContract = "invalid-contract";
     private const string PublishFailed = "publish-failed";
 
     public async Task<IReadOnlyList<ClaimedOutboxMessage>> ClaimBatchAsync(
@@ -29,6 +30,7 @@ internal sealed class CounterOutboxStore(CounterDbContext dbContext)
                 SELECT "MessageId"
                 FROM counter.outbox_messages
                 WHERE "PublishedAtUtc" IS NULL
+                  AND "RejectedAtUtc" IS NULL
                   AND "NextAttemptAtUtc" <= @now
                   AND ("LeaseExpiresAtUtc" IS NULL OR "LeaseExpiresAtUtc" <= @now)
                 ORDER BY "NextAttemptAtUtc", "OccurredAtUtc", "MessageId"
@@ -44,6 +46,8 @@ internal sealed class CounterOutboxStore(CounterDbContext dbContext)
                       message."EventType",
                       message."EventVersion",
                       message."EnvelopeJson"::text,
+                      message."CorrelationId",
+                      message."CausationId",
                       message."TraceParent",
                       message."TraceState";
             """;
@@ -75,8 +79,10 @@ internal sealed class CounterOutboxStore(CounterDbContext dbContext)
                     reader.GetString(1),
                     reader.GetInt32(2),
                     reader.GetString(3),
-                    reader.IsDBNull(4) ? null : reader.GetString(4),
-                    reader.IsDBNull(5) ? null : reader.GetString(5)));
+                    reader.GetString(4),
+                    reader.IsDBNull(5) ? null : reader.GetString(5),
+                    reader.IsDBNull(6) ? null : reader.GetString(6),
+                    reader.IsDBNull(7) ? null : reader.GetString(7)));
             }
 
             return claimed;
@@ -104,7 +110,8 @@ internal sealed class CounterOutboxStore(CounterDbContext dbContext)
                 "LastErrorCode" = NULL
             WHERE "MessageId" = @messageId
               AND "LeaseId" = @leaseId
-              AND "PublishedAtUtc" IS NULL;
+              AND "PublishedAtUtc" IS NULL
+              AND "RejectedAtUtc" IS NULL;
             """,
             messageId,
             leaseId,
@@ -135,11 +142,45 @@ internal sealed class CounterOutboxStore(CounterDbContext dbContext)
                 "LastErrorCode" = @safeErrorCode
             WHERE "MessageId" = @messageId
               AND "LeaseId" = @leaseId
-              AND "PublishedAtUtc" IS NULL;
+              AND "PublishedAtUtc" IS NULL
+              AND "RejectedAtUtc" IS NULL;
             """,
             messageId,
             leaseId,
             nextAttemptAt,
+            cancellationToken,
+            safeErrorCode);
+    }
+
+    public Task MarkRejectedAsync(
+        Guid messageId,
+        Guid leaseId,
+        string safeErrorCode,
+        DateTimeOffset rejectedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(safeErrorCode, InvalidContract, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "The outbox rejection code is not on the safe allow-list.",
+                nameof(safeErrorCode));
+        }
+
+        return ExecuteAsync(
+            """
+            UPDATE counter.outbox_messages
+            SET "RejectedAtUtc" = @timestamp,
+                "LeaseId" = NULL,
+                "LeaseExpiresAtUtc" = NULL,
+                "LastErrorCode" = @safeErrorCode
+            WHERE "MessageId" = @messageId
+              AND "LeaseId" = @leaseId
+              AND "PublishedAtUtc" IS NULL
+              AND "RejectedAtUtc" IS NULL;
+            """,
+            messageId,
+            leaseId,
+            rejectedAtUtc,
             cancellationToken,
             safeErrorCode);
     }

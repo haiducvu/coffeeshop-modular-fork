@@ -39,6 +39,8 @@ public static class KafkaServiceCollectionExtensions
                 "Kafka max poll interval must be at least five minutes, exceed the second retry delay by at least one second, and fit the Kafka client range.")
             .ValidateOnStart();
         services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<IMessageIdentityAccessor, MessageIdentityAccessor>();
+        services.TryAddSingleton<KafkaMessageIdentityScope>();
         services.TryAddSingleton<
             IIntegrationFailureClassifier,
             DefaultIntegrationFailureClassifier>();

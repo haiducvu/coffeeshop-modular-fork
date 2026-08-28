@@ -9,6 +9,8 @@ interface OrderUpdateMessage {
   orderStatus: string;
   madeBy: string | null;
   occurredAt: string;
+  correlationId: string;
+  causationId: string | null;
 }
 
 const hubUrl = import.meta.env.VITE_HUB_URL ?? "http://localhost:5000/message";

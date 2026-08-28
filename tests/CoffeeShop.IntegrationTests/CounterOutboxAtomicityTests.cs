@@ -4,6 +4,7 @@ using CoffeeShop.Contracts.Menu;
 using CoffeeShop.Contracts.Orders;
 using CoffeeShop.IntegrationContracts;
 using CoffeeShop.IntegrationContracts.Orders;
+using CoffeeShop.Messaging.Abstractions;
 using CoffeeShop.Modules.Counter;
 using CoffeeShop.Modules.Counter.Application.Orders.PlaceOrder;
 using CoffeeShop.Modules.Counter.Application.Outbox;
@@ -30,6 +31,8 @@ public sealed class CounterOutboxAtomicityTests(PostgreSqlFixture fixture)
         services.AddLogging();
         services.AddSingleton<IDomainEventDispatcher>(dispatcher);
         services.AddSingleton<TimeProvider>(new FixedTimeProvider(OccurredAtUtc));
+        var identityAccessor = new MessageIdentityAccessor();
+        services.AddSingleton<IMessageIdentityAccessor>(identityAccessor);
         services.AddCounterModule(fixture.ConnectionString);
         await using var provider = services.BuildServiceProvider();
         await provider.MigrateCounterModuleAsync();
@@ -39,14 +42,20 @@ public sealed class CounterOutboxAtomicityTests(PostgreSqlFixture fixture)
             .SetParentId("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
         activity.TraceStateString = "lesson23=green";
         activity.Start();
+        var rootIdentity = new MessageIdentity(
+            "27111111-1111-1111-1111-111111111111",
+            null,
+            activity.Id,
+            "lesson27=snapshot");
 
         Guid orderId;
-        await using (var scope = provider.CreateAsyncScope())
+        using (identityAccessor.Push(rootIdentity))
         {
+            await using var scope = provider.CreateAsyncScope();
             var handler = scope.ServiceProvider.GetRequiredService<PlaceOrderHandler>();
             var result = await handler.HandleAsync(
-                new PlaceOrderInput(0, 0, loyaltyMemberId, [0], [7]),
-                CancellationToken.None);
+                    new PlaceOrderInput(0, 0, loyaltyMemberId, [0], [7]),
+                    CancellationToken.None);
             orderId = result.OrderId;
         }
 
@@ -65,10 +74,10 @@ public sealed class CounterOutboxAtomicityTests(PostgreSqlFixture fixture)
         Assert.Equal(OrderPlacedV1.EventType, outbox.EventType);
         Assert.Equal(OrderPlacedV1.EventVersion, outbox.EventVersion);
         Assert.Equal(OccurredAtUtc, outbox.OccurredAtUtc);
-        Assert.Equal(outbox.MessageId.ToString("D"), outbox.CorrelationId);
+        Assert.Equal(rootIdentity.CorrelationId, outbox.CorrelationId);
         Assert.Null(outbox.CausationId);
-        Assert.Equal(activity.Id, outbox.TraceParent);
-        Assert.Equal(activity.TraceStateString, outbox.TraceState);
+        Assert.Equal(rootIdentity.TraceParent, outbox.TraceParent);
+        Assert.Equal(rootIdentity.TraceState, outbox.TraceState);
         Assert.Equal(outbox.EventType, envelope.EventType);
         Assert.Equal(outbox.EventVersion, envelope.EventVersion);
         Assert.Equal(outbox.OccurredAtUtc, envelope.OccurredAtUtc);

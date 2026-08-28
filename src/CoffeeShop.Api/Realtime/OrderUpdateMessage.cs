@@ -7,4 +7,6 @@ public sealed record OrderUpdateMessage(
     string ItemStatus,
     string OrderStatus,
     string? MadeBy,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt,
+    string CorrelationId,
+    string? CausationId);

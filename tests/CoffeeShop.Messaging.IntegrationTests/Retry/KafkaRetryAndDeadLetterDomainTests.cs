@@ -63,6 +63,11 @@ public sealed class KafkaRetryAndDeadLetterDomainTests(
             await publisher.PublishAsync(
                 payload.OrderId.ToString("D"),
                 envelope,
+                new MessageIdentity(
+                    envelope.CorrelationId,
+                    envelope.CausationId,
+                    null,
+                    null),
                 timeout.Token);
 
             var deadLetter = await ConsumeAsync(
