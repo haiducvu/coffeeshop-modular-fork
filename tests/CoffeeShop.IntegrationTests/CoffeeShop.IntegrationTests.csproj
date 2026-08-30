@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+        <RunSettingsFilePath>$(MSBuildProjectDirectory)/../../test.runsettings</RunSettingsFilePath>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Microsoft.NET.Test.Sdk" />
+      <PackageReference Include="Testcontainers.PostgreSql" />
+      <PackageReference Include="xunit" />
+      <PackageReference Include="xunit.runner.visualstudio" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\src\CoffeeShop.Domain\CoffeeShop.Domain.csproj" />
+      <ProjectReference Include="..\..\src\CoffeeShop.Infrastructure\CoffeeShop.Infrastructure.csproj" />
+    </ItemGroup>
+
+</Project>

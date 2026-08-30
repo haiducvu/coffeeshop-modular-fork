@@ -7,12 +7,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace CoffeeShop.ApiTests;
 
-public sealed class PlaceOrderEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class PlaceOrderEndpointTests : IClassFixture<CoffeeShopApiFactory>
 {
     private readonly WebApplicationFactory<Program> _factory;
     private readonly HttpClient _client;
 
-    public PlaceOrderEndpointTests(WebApplicationFactory<Program> factory)
+    public PlaceOrderEndpointTests(CoffeeShopApiFactory factory)
     {
         _factory = factory;
         _client = factory.CreateClient();
@@ -48,7 +48,7 @@ public sealed class PlaceOrderEndpointTests : IClassFixture<WebApplicationFactor
             food =>
             {
                 Assert.Equal(ItemType.Croissant, food.ItemType);
-                Assert.Equal(4.50m, food.Price);
+                Assert.Equal(3.25m, food.Price);
             }
         );
     }
