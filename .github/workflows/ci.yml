@@ -38,7 +38,7 @@ jobs:
       - name: Run Redis-enabled Phase 1 smoke test
         run: |
           trap 'docker compose --profile demo --profile identity down --volumes --remove-orphans' EXIT
-          docker compose up -d postgres redis api signalr-client
+          docker compose up -d postgres redis kafka schema-registry api signalr-client
           ./scripts/phase-1-smoke.sh
           ./scripts/phase-2-smoke.sh
       - name: Run identity smoke test
@@ -46,10 +46,10 @@ jobs:
           trap 'docker compose --profile identity down --volumes --remove-orphans' EXIT
           jq --version
           ./tests/scripts/phase-2-identity-smoke-tests.sh
-          AUTHENTICATION_ENABLED=true docker compose --profile identity up -d postgres redis keycloak api
+          AUTHENTICATION_ENABLED=true docker compose --profile identity up -d postgres redis kafka schema-registry keycloak api
           ./scripts/phase-2-identity-smoke.sh
       - name: Run one DataGen order
         run: |
           trap 'docker compose --profile demo down --volumes --remove-orphans' EXIT
-          docker compose up -d postgres redis api
+          docker compose up -d postgres redis kafka schema-registry api
           DATAGEN_ORDER_COUNT=1 docker compose --profile demo run --rm datagen
