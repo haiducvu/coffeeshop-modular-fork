@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "OrderPlacedV1Lesson28",
+  "namespace": "CoffeeShop.Events.Compatibility",
+  "fields": [
+    { "name": "messageId", "type": "string" },
+    { "name": "orderId", "type": "string" },
+    { "name": "source", "type": "string" }
+  ]
+}

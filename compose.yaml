@@ -65,6 +65,26 @@ services:
       retries: 20
       start_period: 10s
 
+  schema-registry:
+    image: confluentinc/cp-schema-registry:8.1.0
+    hostname: schema-registry
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:19092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: BACKWARD
+    ports:
+      - "127.0.0.1:${SCHEMA_REGISTRY_PORT:-8081}:8081"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:8081/subjects >/dev/null"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
   api:
     build:
       context: .
@@ -80,6 +100,8 @@ services:
       Authentication__RequireHttpsMetadata: ${AUTHENTICATION_REQUIRE_HTTPS_METADATA:-false}
       Messaging__Kafka__Enabled: ${KAFKA_ENABLED:-true}
       Messaging__Kafka__BootstrapServers: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:19092}
+      Messaging__Kafka__SchemaRegistryUrl: ${SCHEMA_REGISTRY_URL:-http://schema-registry:8081}
+      Messaging__Kafka__ProducerFormat: ${KAFKA_PRODUCER_FORMAT:-Avro}
       Messaging__Kafka__TopicPrefix: ${KAFKA_TOPIC_PREFIX:-coffeeshop}
       Messaging__Kafka__ConsumerGroupPrefix: ${KAFKA_CONSUMER_GROUP_PREFIX:-coffeeshop}
       Messaging__Kafka__Retry__FirstDelay: ${KAFKA_RETRY_FIRST_DELAY:-00:00:01}

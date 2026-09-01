@@ -1,5 +1,7 @@
+using Confluent.SchemaRegistry;
 using CoffeeShop.IntegrationContracts;
 using CoffeeShop.Messaging.Abstractions;
+using CoffeeShop.Messaging.Kafka.Avro;
 using CoffeeShop.Messaging.Kafka.Retry;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -19,11 +21,21 @@ public static class KafkaServiceCollectionExtensions
                 options => !string.IsNullOrWhiteSpace(options.BootstrapServers),
                 "Kafka bootstrap servers are required.")
             .Validate(
+                options => Enum.IsDefined(typeof(KafkaProducerFormat), options.ProducerFormat),
+                "Kafka producer format must be Json or Avro.")
+            .Validate(
                 options => IsValidName(options.TopicPrefix),
                 "Kafka topic prefix must contain only letters, digits, periods, underscores, or hyphens.")
             .Validate(
                 options => IsValidName(options.ConsumerGroupPrefix),
                 "Kafka consumer group prefix must contain only letters, digits, periods, underscores, or hyphens.")
+            .Validate(
+                options => Uri.TryCreate(
+                        options.SchemaRegistryUrl,
+                        UriKind.Absolute,
+                        out var uri)
+                    && uri.Scheme is "http" or "https",
+                "Kafka Schema Registry URL must be an absolute HTTP or HTTPS URL.")
             .Validate(
                 options => options.Retry is not null
                     && options.Retry.FirstDelay > TimeSpan.Zero
@@ -48,6 +60,18 @@ public static class KafkaServiceCollectionExtensions
         services.TryAddSingleton<IKafkaRetryPublisher, KafkaRetryPublisher>();
         services.TryAddSingleton<KafkaRetryRouter>();
         services.AddSingleton<JsonIntegrationEventCodec>();
+        services.AddSingleton<ISchemaRegistryClient>(serviceProvider =>
+        {
+            var options = serviceProvider
+                .GetRequiredService<Microsoft.Extensions.Options.IOptions<KafkaMessagingOptions>>()
+                .Value;
+            return new CachedSchemaRegistryClient(new SchemaRegistryConfig
+            {
+                Url = options.SchemaRegistryUrl
+            });
+        });
+        services.AddSingleton<IAvroIntegrationEventCodec, AvroIntegrationEventCodec>();
+        services.AddSingleton<DualFormatIntegrationEventCodec>();
         services.AddSingleton<KafkaIntegrationEventMapper>();
         services.AddSingleton<IIntegrationEventPublisher, KafkaIntegrationEventPublisher>();
         return services;

@@ -8,6 +8,13 @@
         "dotnet-ef"
       ],
       "rollForward": false
+    },
+    "apache.avro.tools": {
+      "version": "1.12.2",
+      "commands": [
+        "avrogen"
+      ],
+      "rollForward": false
     }
   }
 }

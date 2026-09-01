@@ -5,31 +5,40 @@ using System.Text.Json;
 using Confluent.Kafka;
 using CoffeeShop.IntegrationContracts;
 using CoffeeShop.Messaging.Abstractions;
+using CoffeeShop.Messaging.Kafka.Avro;
+using Microsoft.Extensions.Options;
 
 namespace CoffeeShop.Messaging.Kafka;
 
-internal sealed class KafkaIntegrationEventMapper(JsonIntegrationEventCodec codec)
+internal sealed class KafkaIntegrationEventMapper(
+    DualFormatIntegrationEventCodec codec,
+    IOptions<KafkaMessagingOptions> options)
 {
-    private const string JsonContentType = "application/json";
-
-    internal Message<string, byte[]> ToMessage<TPayload>(
+    internal ValueTask<Message<string, byte[]>> ToMessageAsync<TPayload>(
+        string topic,
         string key,
-        IntegrationEventEnvelope<TPayload> envelope)
-        where TPayload : IIntegrationEvent => ToMessage(
+        IntegrationEventEnvelope<TPayload> envelope,
+        CancellationToken cancellationToken)
+        where TPayload : IIntegrationEvent => ToMessageAsync(
+            topic,
             key,
             envelope,
             new MessageIdentity(
                 envelope.CorrelationId,
                 envelope.CausationId,
                 null,
-                null));
+                null),
+            cancellationToken);
 
-    internal Message<string, byte[]> ToMessage<TPayload>(
+    internal async ValueTask<Message<string, byte[]>> ToMessageAsync<TPayload>(
+        string topic,
         string key,
         IntegrationEventEnvelope<TPayload> envelope,
-        MessageIdentity identity)
+        MessageIdentity identity,
+        CancellationToken cancellationToken)
         where TPayload : IIntegrationEvent
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(topic);
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
         ArgumentNullException.ThrowIfNull(identity);
         if (!string.Equals(
@@ -45,6 +54,11 @@ internal sealed class KafkaIntegrationEventMapper(JsonIntegrationEventCodec code
         }
 
         ValidateTraceContext(identity.TraceParent, identity.TraceState);
+        var encoded = await codec.SerializeAsync(
+            topic,
+            envelope,
+            options.Value.ProducerFormat,
+            cancellationToken);
 
         var headers = new Headers();
         Add(headers, KafkaHeaderNames.MessageId, envelope.MessageId.ToString("D"));
@@ -59,27 +73,34 @@ internal sealed class KafkaIntegrationEventMapper(JsonIntegrationEventCodec code
             envelope.OccurredAtUtc.ToString("O", CultureInfo.InvariantCulture));
         Add(headers, KafkaHeaderNames.CorrelationId, envelope.CorrelationId);
         Add(headers, KafkaHeaderNames.CausationId, envelope.CausationId ?? string.Empty);
-        Add(headers, KafkaHeaderNames.ContentType, JsonContentType);
+        Add(headers, KafkaHeaderNames.ContentType, encoded.ContentType);
         AddIfPresent(headers, KafkaHeaderNames.TraceParent, identity.TraceParent);
         AddIfPresent(headers, KafkaHeaderNames.TraceState, identity.TraceState);
 
         return new Message<string, byte[]>
         {
             Key = key,
-            Value = codec.Serialize(envelope),
+            Value = encoded.Value,
             Headers = headers
         };
     }
 
-    internal IntegrationEventEnvelope<TPayload> FromMessage<TPayload>(
-        Message<string, byte[]> message)
+    internal async ValueTask<IntegrationEventEnvelope<TPayload>> FromMessageAsync<TPayload>(
+        string topic,
+        Message<string, byte[]> message,
+        CancellationToken cancellationToken)
         where TPayload : IIntegrationEvent
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(topic);
         ArgumentNullException.ThrowIfNull(message);
         var value = message.Value ?? throw new JsonException("Kafka message value cannot be null.");
-        var envelope = codec.Deserialize<TPayload>(value);
+        var contentType = RequireSingle(message.Headers, KafkaHeaderNames.ContentType);
+        var envelope = await codec.DeserializeAsync<TPayload>(
+            topic,
+            value,
+            contentType,
+            cancellationToken);
 
-        RequireEqual(message.Headers, KafkaHeaderNames.ContentType, JsonContentType);
         RequireEqual(
             message.Headers,
             KafkaHeaderNames.MessageId,
@@ -138,6 +159,15 @@ internal sealed class KafkaIntegrationEventMapper(JsonIntegrationEventCodec code
 
     private static void RequireEqual(Headers headers, string name, string expected)
     {
+        var actual = RequireSingle(headers, name);
+        if (!string.Equals(actual, expected, StringComparison.Ordinal))
+        {
+            throw new JsonException($"Kafka header '{name}' does not match the envelope.");
+        }
+    }
+
+    private static string RequireSingle(Headers headers, string name)
+    {
         var matches = headers
             .Where(header => string.Equals(header.Key, name, StringComparison.Ordinal))
             .ToArray();
@@ -146,10 +176,6 @@ internal sealed class KafkaIntegrationEventMapper(JsonIntegrationEventCodec code
             throw new JsonException($"Kafka header '{name}' must appear exactly once.");
         }
 
-        var actual = Encoding.UTF8.GetString(matches[0].GetValueBytes());
-        if (!string.Equals(actual, expected, StringComparison.Ordinal))
-        {
-            throw new JsonException($"Kafka header '{name}' does not match the envelope.");
-        }
+        return Encoding.UTF8.GetString(matches[0].GetValueBytes());
     }
 }

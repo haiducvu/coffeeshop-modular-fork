@@ -97,6 +97,47 @@ public sealed class ConfigurationValidationTests
         Assert.Contains("Kafka bootstrap servers are required", exception.ToString(), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Avro_writer_without_absolute_schema_registry_url_fails_startup()
+    {
+        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting("Authentication:Enabled", "false");
+            builder.UseSetting("Messaging:Kafka:Enabled", "true");
+            builder.UseSetting("Messaging:Kafka:BootstrapServers", "127.0.0.1:9092");
+            builder.UseSetting("Messaging:Kafka:ProducerFormat", "Avro");
+            builder.UseSetting("Messaging:Kafka:SchemaRegistryUrl", "schema-registry:8081");
+        });
+
+        var exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+
+        Assert.Contains(
+            "Schema Registry URL must be an absolute HTTP or HTTPS URL",
+            exception.ToString(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Undefined_numeric_kafka_producer_format_fails_startup()
+    {
+        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting("Authentication:Enabled", "false");
+            builder.UseSetting("Messaging:Kafka:Enabled", "true");
+            builder.UseSetting("Messaging:Kafka:BootstrapServers", "127.0.0.1:9092");
+            builder.UseSetting("Messaging:Kafka:ProducerFormat", "42");
+        });
+
+        var exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+
+        Assert.Contains(
+            "Kafka producer format must be Json or Avro",
+            exception.ToString(),
+            StringComparison.Ordinal);
+    }
+
     private static OptionsValidationException ResolveOptions(
         IReadOnlyDictionary<string, string?> settings)
     {

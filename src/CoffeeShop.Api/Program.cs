@@ -89,6 +89,20 @@ if (kafkaEnabled)
         "kafka",
         tags: ["ready"],
         timeout: TimeSpan.FromSeconds(2));
+    if (Enum.TryParse<KafkaProducerFormat>(
+            kafkaSection[nameof(KafkaMessagingOptions.ProducerFormat)],
+            ignoreCase: true,
+            out var producerFormat)
+        && producerFormat == KafkaProducerFormat.Avro)
+    {
+        builder.Services.AddHttpClient(
+            SchemaRegistryReadinessHealthCheck.HttpClientName,
+            client => client.Timeout = TimeSpan.FromSeconds(2));
+        healthChecks.AddCheck<SchemaRegistryReadinessHealthCheck>(
+            "schema-registry",
+            tags: ["ready"],
+            timeout: TimeSpan.FromSeconds(3));
+    }
     builder.Services.AddKafkaConsumer<OrderPlacedV1>("barista");
     builder.Services.AddKafkaConsumer<OrderPlacedV1>("kitchen");
     builder.Services.AddKafkaConsumer<OrderItemPreparedV1>("counter");

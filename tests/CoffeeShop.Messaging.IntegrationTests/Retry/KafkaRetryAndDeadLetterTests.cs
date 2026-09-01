@@ -234,8 +234,19 @@ public sealed class KafkaRetryAndDeadLetterTests(KafkaFixture fixture)
         IntegrationEventEnvelope<OrderPlacedV1> envelope,
         CancellationToken cancellationToken)
     {
-        var mapper = new KafkaIntegrationEventMapper(new JsonIntegrationEventCodec());
-        var message = mapper.ToMessage(envelope.Payload.OrderId.ToString("D"), envelope);
+        var services = new ServiceCollection();
+        services.AddKafkaMessaging(options =>
+        {
+            options.BootstrapServers = fixture.BootstrapServers;
+            options.ProducerFormat = KafkaProducerFormat.Json;
+        });
+        using var provider = services.BuildServiceProvider();
+        var mapper = provider.GetRequiredService<KafkaIntegrationEventMapper>();
+        var message = await mapper.ToMessageAsync(
+            names.Original,
+            envelope.Payload.OrderId.ToString("D"),
+            envelope,
+            cancellationToken);
         message.Headers.Add(
             KafkaHeaderNames.DeliveryAttempt,
             Encoding.UTF8.GetBytes("2"));

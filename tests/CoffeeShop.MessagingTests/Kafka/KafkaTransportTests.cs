@@ -4,6 +4,8 @@ using CoffeeShop.IntegrationContracts;
 using CoffeeShop.IntegrationContracts.Orders;
 using CoffeeShop.Messaging.Abstractions;
 using CoffeeShop.Messaging.Kafka;
+using CoffeeShop.Messaging.Kafka.Avro;
+using Microsoft.Extensions.Options;
 
 namespace CoffeeShop.MessagingTests.Kafka;
 
@@ -13,6 +15,7 @@ public sealed class KafkaTransportTests
         Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid OrderId =
         Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private const string Topic = "coffeeshop.orders.v1";
 
     [Fact]
     public void Topic_resolver_uses_semantic_event_identity()
@@ -55,13 +58,20 @@ public sealed class KafkaTransportTests
     }
 
     [Fact]
-    public void Kafka_mapper_duplicates_envelope_identity_in_headers()
+    public async Task Kafka_mapper_duplicates_envelope_identity_in_headers()
     {
-        var mapper = new KafkaIntegrationEventMapper(new JsonIntegrationEventCodec());
+        var mapper = CreateMapper();
         var envelope = CreateEnvelope(MessageId);
 
-        var message = mapper.ToMessage(OrderId.ToString("D"), envelope);
-        var decoded = mapper.FromMessage<OrderPlacedV1>(message);
+        var message = await mapper.ToMessageAsync(
+            Topic,
+            OrderId.ToString("D"),
+            envelope,
+            CancellationToken.None);
+        var decoded = await mapper.FromMessageAsync<OrderPlacedV1>(
+            Topic,
+            message,
+            CancellationToken.None);
 
         Assert.Equal(OrderId.ToString("D"), message.Key);
         Assert.Equal(MessageId, decoded.MessageId);
@@ -80,33 +90,47 @@ public sealed class KafkaTransportTests
     }
 
     [Fact]
-    public void Kafka_mapper_rejects_header_and_envelope_identity_mismatch()
+    public async Task Kafka_mapper_rejects_header_and_envelope_identity_mismatch()
     {
-        var mapper = new KafkaIntegrationEventMapper(new JsonIntegrationEventCodec());
-        var message = mapper.ToMessage(OrderId.ToString("D"), CreateEnvelope(MessageId));
+        var mapper = CreateMapper();
+        var message = await mapper.ToMessageAsync(
+            Topic,
+            OrderId.ToString("D"),
+            CreateEnvelope(MessageId),
+            CancellationToken.None);
         message.Headers.Remove(KafkaHeaderNames.MessageId);
         message.Headers.Add(
             KafkaHeaderNames.MessageId,
             Encoding.UTF8.GetBytes(Guid.Empty.ToString("D")));
 
-        var exception = Assert.Throws<JsonException>(() =>
-            mapper.FromMessage<OrderPlacedV1>(message));
+        var exception = await Assert.ThrowsAsync<JsonException>(async () =>
+            await mapper.FromMessageAsync<OrderPlacedV1>(
+                Topic,
+                message,
+                CancellationToken.None));
 
         Assert.Equal("Kafka header 'message-id' does not match the envelope.", exception.Message);
     }
 
     [Fact]
-    public void Kafka_mapper_rejects_duplicate_identity_headers()
+    public async Task Kafka_mapper_rejects_duplicate_identity_headers()
     {
-        var mapper = new KafkaIntegrationEventMapper(new JsonIntegrationEventCodec());
+        var mapper = CreateMapper();
         var envelope = CreateEnvelope(MessageId);
-        var message = mapper.ToMessage(OrderId.ToString("D"), envelope);
+        var message = await mapper.ToMessageAsync(
+            Topic,
+            OrderId.ToString("D"),
+            envelope,
+            CancellationToken.None);
         message.Headers.Add(
             KafkaHeaderNames.CorrelationId,
             Encoding.UTF8.GetBytes(envelope.CorrelationId));
 
-        var exception = Assert.Throws<JsonException>(() =>
-            mapper.FromMessage<OrderPlacedV1>(message));
+        var exception = await Assert.ThrowsAsync<JsonException>(async () =>
+            await mapper.FromMessageAsync<OrderPlacedV1>(
+                Topic,
+                message,
+                CancellationToken.None));
 
         Assert.Equal(
             "Kafka header 'correlation-id' must appear exactly once.",
@@ -114,19 +138,21 @@ public sealed class KafkaTransportTests
     }
 
     [Fact]
-    public void Kafka_identity_scope_propagates_trace_and_sets_direct_causation()
+    public async Task Kafka_identity_scope_propagates_trace_and_sets_direct_causation()
     {
-        var mapper = new KafkaIntegrationEventMapper(new JsonIntegrationEventCodec());
+        var mapper = CreateMapper();
         var envelope = CreateEnvelope(MessageId);
         var publicationIdentity = new MessageIdentity(
             envelope.CorrelationId,
             envelope.CausationId,
             "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
             "lesson27=green");
-        var message = mapper.ToMessage(
+        var message = await mapper.ToMessageAsync(
+            Topic,
             OrderId.ToString("D"),
             envelope,
-            publicationIdentity);
+            publicationIdentity,
+            CancellationToken.None);
         var accessor = new MessageIdentityAccessor();
         var identityScope = new KafkaMessageIdentityScope(accessor);
 
@@ -148,16 +174,21 @@ public sealed class KafkaTransportTests
     }
 
     [Fact]
-    public void Kafka_identity_scope_rejects_duplicate_optional_trace_headers()
+    public async Task Kafka_identity_scope_rejects_duplicate_optional_trace_headers()
     {
-        var mapper = new KafkaIntegrationEventMapper(new JsonIntegrationEventCodec());
+        var mapper = CreateMapper();
         var envelope = CreateEnvelope(MessageId);
         var identity = new MessageIdentity(
             envelope.CorrelationId,
             envelope.CausationId,
             "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
             null);
-        var message = mapper.ToMessage(OrderId.ToString("D"), envelope, identity);
+        var message = await mapper.ToMessageAsync(
+            Topic,
+            OrderId.ToString("D"),
+            envelope,
+            identity,
+            CancellationToken.None);
         message.Headers.Add(
             KafkaHeaderNames.TraceParent,
             Encoding.UTF8.GetBytes(identity.TraceParent!));
@@ -170,9 +201,9 @@ public sealed class KafkaTransportTests
     }
 
     [Fact]
-    public void Kafka_mapper_rejects_outbox_identity_mismatch()
+    public async Task Kafka_mapper_rejects_outbox_identity_mismatch()
     {
-        var mapper = new KafkaIntegrationEventMapper(new JsonIntegrationEventCodec());
+        var mapper = CreateMapper();
         var envelope = CreateEnvelope(MessageId);
         var mismatchedIdentity = new MessageIdentity(
             "33333333-3333-3333-3333-333333333333",
@@ -180,10 +211,13 @@ public sealed class KafkaTransportTests
             null,
             null);
 
-        var exception = Assert.Throws<JsonException>(() => mapper.ToMessage(
-            OrderId.ToString("D"),
-            envelope,
-            mismatchedIdentity));
+        var exception = await Assert.ThrowsAsync<JsonException>(async () =>
+            await mapper.ToMessageAsync(
+                Topic,
+                OrderId.ToString("D"),
+                envelope,
+                mismatchedIdentity,
+                CancellationToken.None));
 
         Assert.Equal("Kafka publication identity does not match the envelope.", exception.Message);
     }
@@ -198,6 +232,34 @@ public sealed class KafkaTransportTests
             null,
             new OrderPlacedV1(OrderId, []));
 
+    private static KafkaIntegrationEventMapper CreateMapper() =>
+        new(
+            new DualFormatIntegrationEventCodec(
+                new JsonIntegrationEventCodec(),
+                new RejectAvroCodec()),
+            Options.Create(new KafkaMessagingOptions
+            {
+                BootstrapServers = "localhost:9092",
+                ProducerFormat = KafkaProducerFormat.Json
+            }));
+
     private static string ReadHeader(Confluent.Kafka.Headers headers, string name) =>
         Encoding.UTF8.GetString(headers.GetLastBytes(name));
+
+    private sealed class RejectAvroCodec : IAvroIntegrationEventCodec
+    {
+        public ValueTask<byte[]> SerializeAsync<TPayload>(
+            string topic,
+            IntegrationEventEnvelope<TPayload> envelope,
+            CancellationToken cancellationToken)
+            where TPayload : IIntegrationEvent =>
+            throw new Xunit.Sdk.XunitException("JSON mapping must not call Avro.");
+
+        public ValueTask<IntegrationEventEnvelope<TPayload>> DeserializeAsync<TPayload>(
+            string topic,
+            ReadOnlyMemory<byte> value,
+            CancellationToken cancellationToken)
+            where TPayload : IIntegrationEvent =>
+            throw new Xunit.Sdk.XunitException("JSON mapping must not call Avro.");
+    }
 }

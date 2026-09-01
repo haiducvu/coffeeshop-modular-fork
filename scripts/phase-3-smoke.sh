@@ -4,6 +4,7 @@ set -eu
 
 api_url="${API_URL:-http://localhost:${API_PORT:-8080}}"
 keycloak_url="${KEYCLOAK_URL:-http://localhost:${KEYCLOAK_PORT:-18080}}"
+schema_registry_url="${SCHEMA_REGISTRY_URL:-http://localhost:${SCHEMA_REGISTRY_PORT:-8081}}"
 authentication_enabled="${AUTHENTICATION_ENABLED:-false}"
 timeout_seconds="${SMOKE_TIMEOUT_SECONDS:-180}"
 deadline=$(( $(date +%s) + timeout_seconds ))
@@ -34,7 +35,7 @@ run_diagnostic() {
 fail() {
   echo "Phase 3 smoke test failed: $1" >&2
   run_diagnostic docker compose ps
-  run_diagnostic docker compose logs --tail=150 api kafka postgres redis
+  run_diagnostic docker compose logs --tail=150 api kafka schema-registry postgres redis
   exit 1
 }
 
@@ -65,7 +66,7 @@ fi
 response_headers="$(mktemp)"
 trap 'rm -f "$response_headers"' EXIT HUP INT TERM
 
-echo "Waiting for PostgreSQL, Redis, and Kafka readiness ..."
+echo "Waiting for PostgreSQL, Redis, Kafka, and Schema Registry readiness ..."
 while :; do
   set_request_timeout 5
   readiness="$(curl --fail --silent --show-error \
@@ -73,9 +74,9 @@ while :; do
     --max-time "$request_timeout" \
     "${api_url}/health/ready" 2>/dev/null || true)"
   if [ "$authentication_enabled" = true ]; then
-    expected_checks='["identity-provider","kafka","postgresql","redis"]'
+    expected_checks='["identity-provider","kafka","postgresql","redis","schema-registry"]'
   else
-    expected_checks='["kafka","postgresql","redis"]'
+    expected_checks='["kafka","postgresql","redis","schema-registry"]'
   fi
   if printf '%s' "$readiness" | jq --exit-status \
       --argjson expected "$expected_checks" '
@@ -186,6 +187,21 @@ else
     fi
     wait_before_retry
   done
+fi
+
+set_request_timeout 5
+schema_subjects="$(curl --fail --silent --show-error \
+  --connect-timeout "$request_timeout" \
+  --max-time "$request_timeout" \
+  "${schema_registry_url}/subjects")" \
+  || fail "Schema Registry subjects could not be loaded."
+if ! printf '%s' "$schema_subjects" | jq --exit-status '
+    sort == [
+      "CoffeeShop.Events.V1.OrderItemPreparedV1",
+      "CoffeeShop.Events.V1.OrderPlacedV1"
+    ]
+  ' >/dev/null 2>&1; then
+  fail "Schema Registry did not contain exactly the governed Version 1 record subjects."
 fi
 
 correlation_id="$(tr -d '\r' < "$response_headers" | awk -F ': *' '

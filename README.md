@@ -85,7 +85,7 @@ Compose; HTTP, SignalR và Redis behavior được giữ nguyên nhưng fulfillm
 
 ```bash
 docker compose down --volumes --remove-orphans
-docker compose up -d --build postgres redis kafka api signalr-client
+docker compose up -d --build postgres redis kafka schema-registry api signalr-client
 ./scripts/phase-3-smoke.sh
 ```
 
@@ -103,6 +103,12 @@ Business event mới giữ workflow correlation và dùng inbound `MessageId` l�
 nguyên identity. Kafka headers, consumer scope, structured logs và SignalR notifications cùng mang chuỗi này,
 còn trace context được giữ riêng để Lesson 29 instrument. Xem
 [tài liệu Lesson 27](docs/lessons/27-correlation-and-causation.md).
+
+Lesson 28 thêm schema-first Avro contracts và Confluent Schema Registry mà vẫn giữ canonical Outbox JSON.
+Consumer đọc song song JSON/Avro trong reader-first rollout; Compose mặc định phát Avro, dùng `BACKWARD`
+compatibility và Record Name Strategy để original/retry/DLT cùng một subject. Real registry tests khóa additive
+field default và breaking fixture. Xem
+[tài liệu Lesson 28](docs/lessons/28-avro-schema-evolution.md).
 
 Dọn containers và database volume local:
 
@@ -158,6 +164,7 @@ Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên data
 - [Lesson 25 — Idempotent Inbox và Kafka fulfillment](docs/lessons/25-idempotent-inbox.md)
 - [Lesson 26 — Bounded retry và Dead-Letter Topic](docs/lessons/26-retry-and-dead-letter.md)
 - [Lesson 27 — Correlation và causation xuyên HTTP/Kafka](docs/lessons/27-correlation-and-causation.md)
+- [Lesson 28 — Avro và Schema Registry governance](docs/lessons/28-avro-schema-evolution.md)
 
 ## Nhánh Git
 

@@ -50,7 +50,10 @@ internal sealed class KafkaConsumerWorker<TPayload>(
                                 consumed.Topic,
                                 consumed.Message,
                                 stoppingToken);
-                            var envelope = mapper.FromMessage<TPayload>(consumed.Message);
+                            var envelope = await mapper.FromMessageAsync<TPayload>(
+                                consumed.Topic,
+                                consumed.Message,
+                                stoppingToken);
                             var deliveryAttempt = retryRouter.ResolveDeliveryAttempt(
                                 originalTopic,
                                 consumed.Topic);

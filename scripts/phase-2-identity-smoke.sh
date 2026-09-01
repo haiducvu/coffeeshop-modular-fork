@@ -99,7 +99,7 @@ while :; do
     "${api_url}/health/ready" 2>/dev/null)" \
     && printf '%s' "$readiness" | jq --exit-status '
       .status == "Healthy"
-      and ([.checks[].name] | sort) == ["identity-provider", "kafka", "postgresql", "redis"]
+      and ([.checks[].name] | sort) == ["identity-provider", "kafka", "postgresql", "redis", "schema-registry"]
       and all(.checks[]; .status == "Healthy")
     ' >/dev/null; then
     break

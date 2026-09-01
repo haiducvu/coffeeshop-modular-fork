@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using CoffeeShop.Api.Health;
+using CoffeeShop.Messaging.Kafka;
 
 namespace CoffeeShop.ApiTests;
 
@@ -86,6 +87,7 @@ public sealed class HealthSemanticsTests
             builder.UseSetting("ConnectionStrings:Redis", string.Empty);
             builder.UseSetting("Messaging:Kafka:Enabled", "true");
             builder.UseSetting("Messaging:Kafka:BootstrapServers", "127.0.0.1:1");
+            builder.UseSetting("Messaging:Kafka:ProducerFormat", "Json");
             builder.UseSetting("Messaging:Kafka:TopicPrefix", "coffeeshop");
             builder.UseSetting("Messaging:Kafka:ConsumerGroupPrefix", "coffeeshop");
         });
@@ -98,6 +100,33 @@ public sealed class HealthSemanticsTests
         Assert.Equal(HttpStatusCode.OK, live.StatusCode);
         Assert.Equal(HttpStatusCode.ServiceUnavailable, ready.StatusCode);
         Assert.Contains("kafka", readyBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("schema-registry", readyBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Avro_writer_adds_Schema_Registry_to_readiness()
+    {
+        await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting("Authentication:Enabled", "false");
+            builder.UseSetting("ConnectionStrings:Redis", string.Empty);
+            builder.UseSetting("Messaging:Kafka:Enabled", "true");
+            builder.UseSetting("Messaging:Kafka:BootstrapServers", "127.0.0.1:1");
+            builder.UseSetting("Messaging:Kafka:ProducerFormat", "Avro");
+            builder.UseSetting("Messaging:Kafka:SchemaRegistryUrl", "http://schema-registry.test");
+            builder.ConfigureServices(services => services
+                .AddHttpClient(SchemaRegistryReadinessHealthCheck.HttpClientName)
+                .ConfigurePrimaryHttpMessageHandler(() =>
+                    new StaticResponseHandler(HttpStatusCode.ServiceUnavailable)));
+        });
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync("/health/ready");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Contains("schema-registry", body, StringComparison.Ordinal);
     }
 
     private static WebApplicationFactory<Program> CreateFactory(

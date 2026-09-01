@@ -33,9 +33,15 @@ internal sealed class KafkaIntegrationEventPublisher : IIntegrationEventPublishe
         where TPayload : IIntegrationEvent
     {
         var topic = KafkaTopicResolver.Resolve<TPayload>(_options.TopicPrefix);
+        var kafkaMessage = await _mapper.ToMessageAsync(
+            topic,
+            key,
+            message,
+            identity,
+            cancellationToken);
         await _producer.ProduceAsync(
             topic,
-            _mapper.ToMessage(key, message, identity),
+            kafkaMessage,
             cancellationToken);
     }
 

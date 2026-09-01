@@ -62,9 +62,9 @@ case "$url" in
     if [ "${FAKE_PHASE3_NO_KAFKA:-false}" = true ]; then
       printf '%s' '{"status":"Healthy","checks":[{"name":"postgresql","status":"Healthy","durationMilliseconds":1},{"name":"redis","status":"Healthy","durationMilliseconds":1}]}'
     elif [ "${AUTHENTICATION_ENABLED:-false}" = true ]; then
-      printf '%s' '{"status":"Healthy","checks":[{"name":"identity-provider","status":"Healthy","durationMilliseconds":1},{"name":"kafka","status":"Healthy","durationMilliseconds":1},{"name":"postgresql","status":"Healthy","durationMilliseconds":1},{"name":"redis","status":"Healthy","durationMilliseconds":1}]}'
+      printf '%s' '{"status":"Healthy","checks":[{"name":"identity-provider","status":"Healthy","durationMilliseconds":1},{"name":"kafka","status":"Healthy","durationMilliseconds":1},{"name":"postgresql","status":"Healthy","durationMilliseconds":1},{"name":"redis","status":"Healthy","durationMilliseconds":1},{"name":"schema-registry","status":"Healthy","durationMilliseconds":1}]}'
     else
-      printf '%s' '{"status":"Healthy","checks":[{"name":"kafka","status":"Healthy","durationMilliseconds":1},{"name":"postgresql","status":"Healthy","durationMilliseconds":1},{"name":"redis","status":"Healthy","durationMilliseconds":1}]}'
+      printf '%s' '{"status":"Healthy","checks":[{"name":"kafka","status":"Healthy","durationMilliseconds":1},{"name":"postgresql","status":"Healthy","durationMilliseconds":1},{"name":"redis","status":"Healthy","durationMilliseconds":1},{"name":"schema-registry","status":"Healthy","durationMilliseconds":1}]}'
     fi
     ;;
   */protocol/openid-connect/token)
@@ -119,6 +119,14 @@ case "$url" in
       printf '%s' '{"orderId":"7a97d7bf-f7e3-4294-9d5c-b95b957342c5","status":"InProgress"}'
     else
       printf '%s' '{"orderId":"7a97d7bf-f7e3-4294-9d5c-b95b957342c5","status":"Fulfilled"}'
+    fi
+    ;;
+  */subjects)
+    trace "GET schema subjects"
+    if [ "${FAKE_PHASE3_NO_SCHEMAS:-false}" = true ]; then
+      printf '%s' '["CoffeeShop.Events.V1.OrderPlacedV1"]'
+    else
+      printf '%s' '["CoffeeShop.Events.V1.OrderPlacedV1","CoffeeShop.Events.V1.OrderItemPreparedV1"]'
     fi
     ;;
   *)

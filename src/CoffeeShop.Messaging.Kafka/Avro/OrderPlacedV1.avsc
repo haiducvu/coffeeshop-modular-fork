@@ -1,0 +1,29 @@
+{
+  "type": "record",
+  "name": "OrderPlacedV1",
+  "namespace": "CoffeeShop.Events.V1",
+  "fields": [
+    { "name": "messageId", "type": "string" },
+    { "name": "eventType", "type": "string" },
+    { "name": "eventVersion", "type": "int" },
+    { "name": "occurredAtUtc", "type": "string" },
+    { "name": "correlationId", "type": "string" },
+    { "name": "causationId", "type": ["null", "string"], "default": null },
+    { "name": "orderId", "type": "string" },
+    {
+      "name": "items",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "OrderLineItemV1",
+          "fields": [
+            { "name": "lineItemId", "type": "string" },
+            { "name": "itemType", "type": "string" },
+            { "name": "station", "type": "string" }
+          ]
+        }
+      }
+    }
+  ]
+}

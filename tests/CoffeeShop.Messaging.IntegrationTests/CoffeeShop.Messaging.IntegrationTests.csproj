@@ -8,6 +8,7 @@
   <ItemGroup>
     <PackageReference Include="coverlet.collector" />
     <PackageReference Include="Confluent.Kafka" />
+    <PackageReference Include="Confluent.SchemaRegistry" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Testcontainers.Kafka" />
@@ -28,6 +29,13 @@
     <ProjectReference Include="..\..\src\CoffeeShop.Modules.Counter\CoffeeShop.Modules.Counter.csproj" />
     <ProjectReference Include="..\..\src\CoffeeShop.Modules.Kitchen\CoffeeShop.Modules.Kitchen.csproj" />
     <ProjectReference Include="..\..\src\CoffeeShop.SharedKernel\CoffeeShop.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Avro/Fixtures/*.avsc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../CoffeeShop.MessagingTests/Fixtures/order-placed-v1-breaking.avsc"
+          Link="Avro/Fixtures/order-placed-v1-breaking.avsc"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

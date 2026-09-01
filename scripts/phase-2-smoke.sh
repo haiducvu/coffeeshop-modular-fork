@@ -54,9 +54,9 @@ printf '%s' "$live_response" | jq --exit-status '
 
 printf '%s' "$ready_response" | jq --exit-status '
   .status == "Healthy"
-  and ([.checks[].name] | sort) == ["kafka", "postgresql", "redis"]
+  and ([.checks[].name] | sort) == ["kafka", "postgresql", "redis", "schema-registry"]
   and all(.checks[]; .status == "Healthy" and (.durationMilliseconds | type) == "number")
-' >/dev/null || fail "Readiness did not report healthy PostgreSQL and Redis checks."
+' >/dev/null || fail "Readiness did not report healthy PostgreSQL, Redis, Kafka, and Schema Registry checks."
 
 docker compose logs --no-color --no-log-prefix api >"$log_file" \
   || fail "API logs could not be captured."
