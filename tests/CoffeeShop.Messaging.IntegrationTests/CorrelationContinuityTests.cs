@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using Confluent.Kafka;
 using Confluent.Kafka.Admin;
 using CoffeeShop.Contracts.Orders;
@@ -32,8 +33,17 @@ public sealed class CorrelationContinuityTests(
         "lesson27=green");
 
     [Fact]
-    public async Task Root_identity_survives_outbox_kafka_consumers_and_notifications()
+    public async Task Distributed_trace_survives_outbox_kafka_consumers_and_notifications()
     {
+        var activities = new ConcurrentQueue<Activity>();
+        using var activityListener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == MessagingTelemetry.ActivitySourceName,
+            Sample = static (ref ActivityCreationOptions<ActivityContext> _) =>
+                ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = activities.Enqueue
+        };
+        ActivitySource.AddActivityListener(activityListener);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
         var cancellationToken = timeout.Token;
         await postgres.ResetAsync();
@@ -68,14 +78,29 @@ public sealed class CorrelationContinuityTests(
             Assert.Null(root.CausationId);
             Assert.Equal(RootIdentity.TraceParent, root.TraceParent);
             Assert.Equal(RootIdentity.TraceState, root.TraceState);
+            Assert.True(ActivityContext.TryParse(
+                root.TraceParent,
+                root.TraceState,
+                isRemote: true,
+                out var rootTrace));
             Assert.Equal(2, children.Length);
             Assert.All(children, child =>
             {
                 Assert.Equal(RootIdentity.CorrelationId, child.CorrelationId);
                 Assert.Equal(root.MessageId.ToString("D"), child.CausationId);
-                Assert.Equal(RootIdentity.TraceParent, child.TraceParent);
+                Assert.NotEqual(RootIdentity.TraceParent, child.TraceParent);
                 Assert.Equal(RootIdentity.TraceState, child.TraceState);
+                Assert.True(ActivityContext.TryParse(
+                    child.TraceParent,
+                    child.TraceState,
+                    isRemote: true,
+                    out var childTrace));
+                Assert.Equal(rootTrace.TraceId, childTrace.TraceId);
+                Assert.NotEqual(rootTrace.SpanId, childTrace.SpanId);
             });
+            Assert.Equal(
+                2,
+                children.Select(child => child.TraceParent).Distinct(StringComparer.Ordinal).Count());
             Assert.Equal(3, rows.Select(row => row.MessageId).Distinct().Count());
 
             var updates = host.Services.GetRequiredService<RecordingOrderUpdates>();
@@ -86,9 +111,17 @@ public sealed class CorrelationContinuityTests(
                 Assert.Contains(
                     children.Select(child => child.MessageId.ToString("D")),
                     causationId => causationId == update.Identity.CausationId);
-                Assert.Equal(RootIdentity.TraceParent, update.Identity.TraceParent);
+                Assert.NotEqual(RootIdentity.TraceParent, update.Identity.TraceParent);
                 Assert.Equal(RootIdentity.TraceState, update.Identity.TraceState);
+                Assert.True(ActivityContext.TryParse(
+                    update.Identity.TraceParent,
+                    update.Identity.TraceState,
+                    isRemote: true,
+                    out var updateTrace));
+                Assert.Equal(rootTrace.TraceId, updateTrace.TraceId);
             });
+            Assert.Contains(activities, activity => activity.Kind == ActivityKind.Producer);
+            Assert.Contains(activities, activity => activity.Kind == ActivityKind.Consumer);
         }
         finally
         {

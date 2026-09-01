@@ -110,6 +110,13 @@ compatibility và Record Name Strategy để original/retry/DLT cùng một subj
 field default và breaking fixture. Xem
 [tài liệu Lesson 28](docs/lessons/28-avro-schema-evolution.md).
 
+Lesson 29 nối W3C trace qua HTTP, persisted Outbox context, Kafka producer/consumer và Outbox tiếp theo;
+business correlation vẫn là identity riêng. `ActivitySource` và `Meter` broker-neutral phát span cùng metric
+low-cardinality cho publish/consume, Outbox, Inbox, retry và DLT. OTLP exporter chỉ bật khi endpoint hợp lệ
+được cấu hình; profile `observability` opt-in thêm OpenTelemetry Collector và Jaeger mà không làm
+chúng thành business-readiness dependency. Xem
+[tài liệu Lesson 29](docs/lessons/29-opentelemetry.md).
+
 Dọn containers và database volume local:
 
 ```bash
@@ -165,6 +172,7 @@ Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên data
 - [Lesson 26 — Bounded retry và Dead-Letter Topic](docs/lessons/26-retry-and-dead-letter.md)
 - [Lesson 27 — Correlation và causation xuyên HTTP/Kafka](docs/lessons/27-correlation-and-causation.md)
 - [Lesson 28 — Avro và Schema Registry governance](docs/lessons/28-avro-schema-evolution.md)
+- [Lesson 29 — OpenTelemetry cho distributed workflow](docs/lessons/29-opentelemetry.md)
 
 ## Nhánh Git
 

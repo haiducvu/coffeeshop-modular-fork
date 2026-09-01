@@ -5,6 +5,8 @@ set -eu
 api_url="${API_URL:-http://localhost:${API_PORT:-8080}}"
 keycloak_url="${KEYCLOAK_URL:-http://localhost:${KEYCLOAK_PORT:-18080}}"
 schema_registry_url="${SCHEMA_REGISTRY_URL:-http://localhost:${SCHEMA_REGISTRY_PORT:-8081}}"
+otel_metrics_url="${OTEL_METRICS_URL:-}"
+jaeger_url="${JAEGER_URL:-}"
 authentication_enabled="${AUTHENTICATION_ENABLED:-false}"
 timeout_seconds="${SMOKE_TIMEOUT_SECONDS:-180}"
 deadline=$(( $(date +%s) + timeout_seconds ))
@@ -35,7 +37,8 @@ run_diagnostic() {
 fail() {
   echo "Phase 3 smoke test failed: $1" >&2
   run_diagnostic docker compose ps
-  run_diagnostic docker compose logs --tail=150 api kafka schema-registry postgres redis
+  run_diagnostic docker compose logs --tail=150 \
+    api kafka schema-registry postgres redis otel-collector jaeger
   exit 1
 }
 
@@ -59,8 +62,19 @@ wait_before_retry() {
   sleep 1
 }
 
+contains_text() {
+  case "$1" in
+    *"$2"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 if ! command -v jq >/dev/null 2>&1; then
   fail "jq is required to validate JSON responses."
+fi
+if { [ -n "$otel_metrics_url" ] && [ -z "$jaeger_url" ]; } \
+  || { [ -z "$otel_metrics_url" ] && [ -n "$jaeger_url" ]; }; then
+  fail "OTEL_METRICS_URL and JAEGER_URL must be configured together."
 fi
 
 response_headers="$(mktemp)"
@@ -267,7 +281,9 @@ identity_state="$(docker compose exec -T postgres psql \
             FROM children
             WHERE children."CorrelationId" = root."CorrelationId"
               AND children."CausationId" = root."MessageId"::text
-              AND children."TraceParent" IS NOT DISTINCT FROM root."TraceParent"
+              AND children."TraceParent" IS DISTINCT FROM root."TraceParent"
+              AND substring(children."TraceParent" from 4 for 32)
+                  = substring(root."TraceParent" from 4 for 32)
               AND children."TraceState" IS NOT DISTINCT FROM root."TraceState")
     FROM root;
   ' | tr -d '\r')" || fail "Workflow identity state could not be queried."
@@ -306,4 +322,53 @@ while :; do
   wait_before_retry
 done
 
-echo "Phase 3 smoke test passed: workflow identity stayed continuous and poison input reached DLT."
+if [ -n "$otel_metrics_url" ]; then
+  echo "Waiting for low-cardinality messaging metrics ..."
+  while :; do
+    set_request_timeout 5
+    metrics="$(curl --fail --silent --show-error \
+      --connect-timeout "$request_timeout" \
+      --max-time "$request_timeout" \
+      "$otel_metrics_url" 2>/dev/null || true)"
+    if contains_text "$metrics" 'coffeeshop_messaging_publish_count' \
+      && contains_text "$metrics" 'coffeeshop_messaging_consume_count' \
+      && contains_text "$metrics" 'coffeeshop_messaging_outbox_publish_attempts' \
+      && contains_text "$metrics" 'coffeeshop_messaging_deadletter_forwarded'; then
+      break
+    fi
+    wait_before_retry
+  done
+
+  echo "Waiting for the distributed workflow trace in Jaeger ..."
+  while :; do
+    set_request_timeout 5
+    services="$(curl --fail --silent --show-error \
+      --connect-timeout "$request_timeout" \
+      --max-time "$request_timeout" \
+      "${jaeger_url}/api/services" 2>/dev/null || true)"
+    if printf '%s' "$services" | jq --exit-status \
+        '.data | index("coffeeshop-api") != null' >/dev/null 2>&1; then
+      break
+    fi
+    wait_before_retry
+  done
+  while :; do
+    set_request_timeout 5
+    traces="$(curl --fail --silent --show-error \
+      --connect-timeout "$request_timeout" \
+      --max-time "$request_timeout" \
+      "${jaeger_url}/api/traces?service=coffeeshop-api&limit=20&lookback=1h" \
+      2>/dev/null || true)"
+    if printf '%s' "$traces" | jq --exit-status '
+        any(.data[]?;
+          [.spans[]?.operationName] as $operations
+          | ($operations | index("coffeeshop.order-placed publish") != null)
+            and ($operations | index("coffeeshop.order-placed process") != null))
+      ' >/dev/null 2>&1; then
+      break
+    fi
+    wait_before_retry
+  done
+fi
+
+echo "Phase 3 smoke test passed: workflow trace stayed continuous, poison input reached DLT, and configured telemetry was observable."

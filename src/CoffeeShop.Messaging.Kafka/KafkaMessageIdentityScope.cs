@@ -15,15 +15,24 @@ internal sealed class KafkaMessageIdentityScope(IMessageIdentityAccessor identit
     {
         ArgumentNullException.ThrowIfNull(envelope);
         ArgumentNullException.ThrowIfNull(headers);
-        var traceParent = ReadOptional(headers, KafkaHeaderNames.TraceParent);
-        var traceState = ReadOptional(headers, KafkaHeaderNames.TraceState);
-        KafkaIntegrationEventMapper.ValidateTraceContext(traceParent, traceState);
+        var (traceParent, traceState) = ReadTraceContext(headers);
 
-        return identityAccessor.Push(new MessageIdentity(
+        var identity = MessagingTelemetry.ContinueFromCurrentActivity(new MessageIdentity(
             envelope.CorrelationId,
             envelope.MessageId.ToString("D"),
             traceParent,
             traceState));
+        return identityAccessor.Push(identity);
+    }
+
+    internal static (string? TraceParent, string? TraceState) ReadTraceContext(
+        Headers headers)
+    {
+        ArgumentNullException.ThrowIfNull(headers);
+        var traceParent = ReadOptional(headers, KafkaHeaderNames.TraceParent);
+        var traceState = ReadOptional(headers, KafkaHeaderNames.TraceState);
+        KafkaIntegrationEventMapper.ValidateTraceContext(traceParent, traceState);
+        return (traceParent, traceState);
     }
 
     private static string? ReadOptional(Headers headers, string name)

@@ -30,6 +30,7 @@ internal sealed class BaristaOutboxPublisher(
             now,
             now.Add(_options.LeaseDuration),
             cancellationToken);
+        MessagingTelemetry.RecordOutboxBatch("barista", messages.Count);
         foreach (var message in messages)
         {
             try
@@ -51,6 +52,10 @@ internal sealed class BaristaOutboxPublisher(
             }
             catch (JsonException)
             {
+                MessagingTelemetry.RecordOutboxPublish(
+                    "barista",
+                    OrderItemPreparedV1.EventType,
+                    "rejected");
                 logger.LogError(
                     "Barista Outbox message {MessageId} was rejected with {ErrorCode}.",
                     message.MessageId,
@@ -65,6 +70,10 @@ internal sealed class BaristaOutboxPublisher(
             }
             catch
             {
+                MessagingTelemetry.RecordOutboxPublish(
+                    "barista",
+                    OrderItemPreparedV1.EventType,
+                    "failure");
                 logger.LogWarning(
                     "Barista Outbox publication failed for {MessageId} with {ErrorCode}.",
                     message.MessageId,
@@ -83,6 +92,10 @@ internal sealed class BaristaOutboxPublisher(
                 leaseId,
                 timeProvider.GetUtcNow(),
                 cancellationToken);
+            MessagingTelemetry.RecordOutboxPublish(
+                "barista",
+                OrderItemPreparedV1.EventType,
+                "success");
         }
 
         return messages.Count;

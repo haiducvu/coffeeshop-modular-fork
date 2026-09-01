@@ -34,6 +34,7 @@ internal sealed class CounterOutboxPublisher(
             claimedAt,
             claimedAt.Add(_options.LeaseDuration),
             cancellationToken);
+        MessagingTelemetry.RecordOutboxBatch("counter", messages.Count);
 
         foreach (var message in messages)
         {
@@ -56,6 +57,10 @@ internal sealed class CounterOutboxPublisher(
             }
             catch (JsonException)
             {
+                MessagingTelemetry.RecordOutboxPublish(
+                    "counter",
+                    OrderPlacedV1.EventType,
+                    "rejected");
                 logger.LogError(
                     "Counter outbox message {MessageId} was rejected with {ErrorCode}.",
                     message.MessageId,
@@ -70,6 +75,10 @@ internal sealed class CounterOutboxPublisher(
             }
             catch
             {
+                MessagingTelemetry.RecordOutboxPublish(
+                    "counter",
+                    OrderPlacedV1.EventType,
+                    "failure");
                 logger.LogWarning(
                     "Counter outbox publication failed for {MessageId} with {ErrorCode}.",
                     message.MessageId,
@@ -88,6 +97,10 @@ internal sealed class CounterOutboxPublisher(
                 leaseId,
                 timeProvider.GetUtcNow(),
                 cancellationToken);
+            MessagingTelemetry.RecordOutboxPublish(
+                "counter",
+                OrderPlacedV1.EventType,
+                "success");
         }
 
         return messages.Count;

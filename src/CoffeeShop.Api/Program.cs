@@ -14,6 +14,7 @@ using CoffeeShop.Api.Health;
 using CoffeeShop.Api.Logging;
 using CoffeeShop.Api.Realtime;
 using CoffeeShop.Api.Time;
+using CoffeeShop.Api.Telemetry;
 using CoffeeShop.Contracts.Orders;
 using CoffeeShop.IntegrationContracts.Orders;
 using CoffeeShop.Messaging.Abstractions;
@@ -67,6 +68,7 @@ builder.Services.AddSerilog((services, logger) => logger
     .Enrich.FromLogContext(),
     preserveStaticLogger: builder.Environment.IsEnvironment("Testing"),
     writeToProviders: true);
+builder.Services.AddCoffeeShopOpenTelemetry(builder.Configuration);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<CoffeeShopExceptionHandler>();
 builder.Services.AddSingleton<IMessageIdentityAccessor, MessageIdentityAccessor>();

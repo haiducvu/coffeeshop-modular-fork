@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Confluent.Kafka;
+using CoffeeShop.IntegrationContracts.Orders;
 using CoffeeShop.Messaging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -126,7 +127,8 @@ internal sealed class KafkaRetryRouter(
             KafkaHeaderNames.FailureAt,
             failedAtUtc.ToString("O", CultureInfo.InvariantCulture));
 
-        if (target.EndsWith(".dlt", StringComparison.Ordinal))
+        var deadLetter = target.EndsWith(".dlt", StringComparison.Ordinal);
+        if (deadLetter)
         {
             forwarded.Headers.Remove(KafkaHeaderNames.NotBefore);
         }
@@ -142,6 +144,11 @@ internal sealed class KafkaRetryRouter(
         }
 
         await publisher.PublishAsync(target, forwarded, cancellationToken);
+        MessagingTelemetry.RecordForwarded(
+            NormalizeEventType(FindHeader(forwarded.Headers, KafkaHeaderNames.EventType)),
+            target,
+            nextAttempt,
+            deadLetter);
     }
 
     private static string ResolveTarget(
@@ -236,4 +243,19 @@ internal sealed class KafkaRetryRouter(
         && value.Length <= 64
         && value.All(character =>
             char.IsAsciiLetterOrDigit(character) || character == '-');
+
+    private static string NormalizeEventType(string? eventType)
+    {
+        if (string.Equals(eventType, OrderPlacedV1.EventType, StringComparison.Ordinal))
+        {
+            return OrderPlacedV1.EventType;
+        }
+
+        return string.Equals(
+            eventType,
+            OrderItemPreparedV1.EventType,
+            StringComparison.Ordinal)
+                ? OrderItemPreparedV1.EventType
+                : "unknown";
+    }
 }

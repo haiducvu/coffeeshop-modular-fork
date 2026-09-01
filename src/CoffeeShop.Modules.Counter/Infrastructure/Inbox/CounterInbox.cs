@@ -26,6 +26,7 @@ internal sealed class CounterInbox(
             cancellationToken);
         if (duplicate)
         {
+            MessagingTelemetry.RecordInboxDuplicate("counter", eventType);
             return InboxDecision.Duplicate;
         }
 
@@ -59,6 +60,7 @@ internal sealed class CounterInbox(
         }
         catch (DbUpdateException exception) when (IsInboxDuplicate(exception))
         {
+            MessagingTelemetry.RecordInboxDuplicate("counter", inbox.EventType);
             dbContext.ChangeTracker.Clear();
             return;
         }

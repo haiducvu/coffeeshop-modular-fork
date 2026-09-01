@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Confluent.Kafka;
 using CoffeeShop.IntegrationContracts;
 using CoffeeShop.Messaging.Abstractions;
@@ -57,6 +58,19 @@ internal sealed class KafkaConsumerWorker<TPayload>(
                             var deliveryAttempt = retryRouter.ResolveDeliveryAttempt(
                                 originalTopic,
                                 consumed.Topic);
+                            var (traceParent, traceState) =
+                                KafkaMessageIdentityScope.ReadTraceContext(
+                                    consumed.Message.Headers);
+                            var startedAt = Stopwatch.GetTimestamp();
+                            using var activity = MessagingTelemetry.StartConsumerActivity(
+                                consumed.Topic,
+                                envelope.EventType,
+                                consumerRole,
+                                deliveryAttempt,
+                                envelope.MessageId,
+                                envelope.CorrelationId,
+                                traceParent,
+                                traceState);
                             using var identityScope = messageIdentityScope.Push(
                                 envelope,
                                 consumed.Message.Headers);
@@ -76,13 +90,44 @@ internal sealed class KafkaConsumerWorker<TPayload>(
                             await using var scope = scopeFactory.CreateAsyncScope();
                             var handler = scope.ServiceProvider.GetRequiredKeyedService<
                                 IIntegrationEventHandler<TPayload>>(consumerRole);
-                            await handler.HandleAsync(
-                                envelope,
-                                new IntegrationMessageContext(
+                            try
+                            {
+                                await handler.HandleAsync(
+                                    envelope,
+                                    new IntegrationMessageContext(
+                                        consumerRole,
+                                        consumed.TopicPartitionOffset.ToString(),
+                                        deliveryAttempt),
+                                    stoppingToken);
+                                activity?.SetStatus(ActivityStatusCode.Ok);
+                                MessagingTelemetry.RecordConsume(
+                                    envelope.EventType,
+                                    consumed.Topic,
                                     consumerRole,
-                                    consumed.TopicPartitionOffset.ToString(),
-                                    deliveryAttempt),
-                                stoppingToken);
+                                    "success",
+                                    Stopwatch.GetElapsedTime(startedAt));
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                MessagingTelemetry.RecordConsume(
+                                    envelope.EventType,
+                                    consumed.Topic,
+                                    consumerRole,
+                                    "cancelled",
+                                    Stopwatch.GetElapsedTime(startedAt));
+                                throw;
+                            }
+                            catch
+                            {
+                                activity?.SetStatus(ActivityStatusCode.Error, "processing-failed");
+                                MessagingTelemetry.RecordConsume(
+                                    envelope.EventType,
+                                    consumed.Topic,
+                                    consumerRole,
+                                    "failure",
+                                    Stopwatch.GetElapsedTime(startedAt));
+                                throw;
+                            }
                             logger.LogInformation(
                                 "Kafka consumer {ConsumerRole} handled integration event.",
                                 consumerRole);

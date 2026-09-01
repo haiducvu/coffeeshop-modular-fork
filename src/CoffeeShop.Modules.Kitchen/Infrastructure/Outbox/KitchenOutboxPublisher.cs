@@ -30,6 +30,7 @@ internal sealed class KitchenOutboxPublisher(
             now,
             now.Add(_options.LeaseDuration),
             cancellationToken);
+        MessagingTelemetry.RecordOutboxBatch("kitchen", messages.Count);
         foreach (var message in messages)
         {
             try
@@ -51,6 +52,10 @@ internal sealed class KitchenOutboxPublisher(
             }
             catch (JsonException)
             {
+                MessagingTelemetry.RecordOutboxPublish(
+                    "kitchen",
+                    OrderItemPreparedV1.EventType,
+                    "rejected");
                 logger.LogError(
                     "Kitchen Outbox message {MessageId} was rejected with {ErrorCode}.",
                     message.MessageId,
@@ -65,6 +70,10 @@ internal sealed class KitchenOutboxPublisher(
             }
             catch
             {
+                MessagingTelemetry.RecordOutboxPublish(
+                    "kitchen",
+                    OrderItemPreparedV1.EventType,
+                    "failure");
                 logger.LogWarning(
                     "Kitchen Outbox publication failed for {MessageId} with {ErrorCode}.",
                     message.MessageId,
@@ -83,6 +92,10 @@ internal sealed class KitchenOutboxPublisher(
                 leaseId,
                 timeProvider.GetUtcNow(),
                 cancellationToken);
+            MessagingTelemetry.RecordOutboxPublish(
+                "kitchen",
+                OrderItemPreparedV1.EventType,
+                "success");
         }
 
         return messages.Count;

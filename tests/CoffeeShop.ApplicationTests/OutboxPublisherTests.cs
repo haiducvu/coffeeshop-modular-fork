@@ -1,3 +1,4 @@
+using System.Diagnostics.Metrics;
 using System.Text.Json;
 using CoffeeShop.IntegrationContracts;
 using CoffeeShop.IntegrationContracts.Orders;
@@ -86,6 +87,42 @@ public sealed class OutboxPublisherTests
     }
 
     [Fact]
+    public async Task Outbox_publisher_records_claimed_and_failed_publication_metrics()
+    {
+        var measurements = new List<(string Name, KeyValuePair<string, object?>[] Tags)>();
+        using var listener = new MeterListener
+        {
+            InstrumentPublished = (instrument, meterListener) =>
+            {
+                if (instrument.Meter.Name == MessagingTelemetry.MeterName)
+                {
+                    meterListener.EnableMeasurementEvents(instrument);
+                }
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, _, tags, _) =>
+            measurements.Add((instrument.Name, tags.ToArray())));
+        listener.Start();
+        var store = new RecordingOutboxStore([CreateClaimedMessage()]);
+        var transport = new RecordingIntegrationEventPublisher
+        {
+            Failure = new IOException("broker unavailable")
+        };
+
+        await CreatePublisher(store, transport).PublishBatchAsync(CancellationToken.None);
+
+        Assert.Contains(measurements, measurement =>
+            measurement.Name == "coffeeshop.messaging.outbox.pending"
+            && HasTag(measurement.Tags, "module", "counter"));
+        Assert.Contains(measurements, measurement =>
+            measurement.Name == "coffeeshop.messaging.outbox.publish.attempts"
+            && HasTag(measurement.Tags, "result", "failure"));
+        Assert.Contains(measurements, measurement =>
+            measurement.Name == "coffeeshop.messaging.outbox.publish.failures"
+            && HasTag(measurement.Tags, "event.type", OrderPlacedV1.EventType));
+    }
+
+    [Fact]
     public void Barista_envelope_contract_must_match_the_claimed_row()
     {
         var message = CreatePreparedMessage("corrupt-event-type", station: "Barista");
@@ -134,6 +171,12 @@ public sealed class OutboxPublisherTests
             }),
             new FixedTimeProvider(Now),
             NullLogger<CounterOutboxPublisher>.Instance);
+
+    private static bool HasTag(
+        IEnumerable<KeyValuePair<string, object?>> tags,
+        string name,
+        object value) => tags.Any(tag =>
+            tag.Key == name && Equals(tag.Value, value));
 
     private static ClaimedOutboxMessage CreateClaimedMessage(string? rowCorrelationId = null)
     {

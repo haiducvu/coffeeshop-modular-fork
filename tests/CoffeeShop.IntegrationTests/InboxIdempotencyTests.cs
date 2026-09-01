@@ -1,3 +1,4 @@
+using System.Diagnostics.Metrics;
 using System.Text.Json;
 using CoffeeShop.Contracts.Orders;
 using CoffeeShop.IntegrationContracts;
@@ -39,6 +40,29 @@ public sealed class InboxIdempotencyTests(PostgreSqlFixture fixture)
     [Fact]
     public async Task Duplicate_deliveries_create_one_station_effect_and_one_counter_completion()
     {
+        var duplicateModules = new List<string>();
+        using var meterListener = new MeterListener
+        {
+            InstrumentPublished = (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == MessagingTelemetry.MeterName
+                    && instrument.Name == "coffeeshop.messaging.inbox.duplicates")
+                {
+                    listener.EnableMeasurementEvents(instrument);
+                }
+            }
+        };
+        meterListener.SetMeasurementEventCallback<long>((_, _, tags, _) =>
+        {
+            foreach (var tag in tags)
+            {
+                if (tag.Key == "module")
+                {
+                    duplicateModules.Add((string)tag.Value!);
+                }
+            }
+        });
+        meterListener.Start();
         await fixture.ResetModuleSchemasAsync();
         var services = CreateServices();
         await using var provider = services.BuildServiceProvider();
@@ -113,6 +137,9 @@ public sealed class InboxIdempotencyTests(PostgreSqlFixture fixture)
         Assert.Equal(OrderStatus.Fulfilled, order.Status);
         Assert.All(order.LineItems, line => Assert.Equal(ItemStatus.Fulfilled, line.Status));
         Assert.Equal(2, await counterContext.InboxMessages.CountAsync());
+        Assert.Equal(
+            ["barista", "counter", "counter", "kitchen"],
+            duplicateModules.Order(StringComparer.Ordinal));
     }
 
     [Fact]

@@ -129,6 +129,34 @@ case "$url" in
       printf '%s' '["CoffeeShop.Events.V1.OrderPlacedV1","CoffeeShop.Events.V1.OrderItemPreparedV1"]'
     fi
     ;;
+  */metrics)
+    trace "GET telemetry metrics"
+    if [ "${FAKE_PHASE3_NO_TELEMETRY:-false}" = true ]; then
+      printf '%s' '# telemetry unavailable'
+    else
+      printf '%s\n' \
+        'coffeeshop_messaging_publish_count_total{event_type="coffeeshop.order-placed"} 1' \
+        'coffeeshop_messaging_consume_count_total{event_type="coffeeshop.order-placed"} 2' \
+        'coffeeshop_messaging_outbox_publish_attempts_total{module="counter"} 1' \
+        'coffeeshop_messaging_deadletter_forwarded_total{event_type="unknown"} 2'
+    fi
+    ;;
+  */api/services)
+    trace "GET jaeger services"
+    if [ "${FAKE_PHASE3_NO_TELEMETRY:-false}" = true ]; then
+      printf '%s' '{"data":[]}'
+    else
+      printf '%s' '{"data":["coffeeshop-api"]}'
+    fi
+    ;;
+  */api/traces*)
+    trace "GET jaeger traces"
+    if [ "${FAKE_PHASE3_NO_TELEMETRY:-false}" = true ]; then
+      printf '%s' '{"data":[]}'
+    else
+      printf '%s' '{"data":[{"spans":[{"operationName":"coffeeshop.order-placed publish"},{"operationName":"coffeeshop.order-placed process"}]}]}'
+    fi
+    ;;
   *)
     echo "Unexpected phase 3 fake curl URL: $url" >&2
     exit 2

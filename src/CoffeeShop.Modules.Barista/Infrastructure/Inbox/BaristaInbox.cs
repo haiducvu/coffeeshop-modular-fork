@@ -23,6 +23,7 @@ internal sealed class BaristaInbox(BaristaDbContext dbContext) : IBaristaInbox
             cancellationToken);
         if (duplicate)
         {
+            MessagingTelemetry.RecordInboxDuplicate("barista", eventType);
             return InboxDecision.Duplicate;
         }
 
@@ -55,6 +56,7 @@ internal sealed class BaristaInbox(BaristaDbContext dbContext) : IBaristaInbox
         }
         catch (DbUpdateException exception) when (IsInboxDuplicate(exception))
         {
+            MessagingTelemetry.RecordInboxDuplicate("barista", inbox.EventType);
             dbContext.ChangeTracker.Clear();
             return;
         }

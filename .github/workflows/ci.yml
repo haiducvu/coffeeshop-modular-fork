@@ -34,7 +34,7 @@ jobs:
       - name: Build SignalR client
         run: npm run build --prefix src/CoffeeShop.SignalRClient
       - name: Build container images
-        run: docker compose --profile demo --profile identity build
+        run: docker compose --profile demo --profile identity --profile observability build
       - name: Run Redis-enabled Phase 1 smoke test
         run: |
           trap 'docker compose --profile demo --profile identity down --volumes --remove-orphans' EXIT
@@ -53,3 +53,12 @@ jobs:
           trap 'docker compose --profile demo down --volumes --remove-orphans' EXIT
           docker compose up -d postgres redis kafka schema-registry api
           DATAGEN_ORDER_COUNT=1 docker compose --profile demo run --rm datagen
+      - name: Run OpenTelemetry Phase 3 smoke test
+        env:
+          OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+          OTEL_METRIC_EXPORT_INTERVAL: 5000
+        run: |
+          trap 'docker compose --profile observability down --volumes --remove-orphans' EXIT
+          ./tests/scripts/phase-3-smoke-tests.sh
+          docker compose --profile observability up -d postgres redis kafka schema-registry jaeger otel-collector api
+          OTEL_METRICS_URL=http://localhost:9464/metrics JAEGER_URL=http://localhost:16686 ./scripts/phase-3-smoke.sh

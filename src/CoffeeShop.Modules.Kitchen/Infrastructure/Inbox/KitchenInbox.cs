@@ -23,6 +23,7 @@ internal sealed class KitchenInbox(KitchenDbContext dbContext) : IKitchenInbox
             cancellationToken);
         if (duplicate)
         {
+            MessagingTelemetry.RecordInboxDuplicate("kitchen", eventType);
             return InboxDecision.Duplicate;
         }
 
@@ -55,6 +56,7 @@ internal sealed class KitchenInbox(KitchenDbContext dbContext) : IKitchenInbox
         }
         catch (DbUpdateException exception) when (IsInboxDuplicate(exception))
         {
+            MessagingTelemetry.RecordInboxDuplicate("kitchen", inbox.EventType);
             dbContext.ChangeTracker.Clear();
             return;
         }

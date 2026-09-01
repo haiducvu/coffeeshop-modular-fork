@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Confluent.Kafka;
 using CoffeeShop.IntegrationContracts;
 using CoffeeShop.Messaging.Abstractions;
@@ -33,16 +34,55 @@ internal sealed class KafkaIntegrationEventPublisher : IIntegrationEventPublishe
         where TPayload : IIntegrationEvent
     {
         var topic = KafkaTopicResolver.Resolve<TPayload>(_options.TopicPrefix);
-        var kafkaMessage = await _mapper.ToMessageAsync(
+        KafkaIntegrationEventMapper.ValidateTraceContext(
+            identity.TraceParent,
+            identity.TraceState);
+        var startedAt = Stopwatch.GetTimestamp();
+        using var activity = MessagingTelemetry.StartProducerActivity(
             topic,
-            key,
-            message,
-            identity,
-            cancellationToken);
-        await _producer.ProduceAsync(
-            topic,
-            kafkaMessage,
-            cancellationToken);
+            message.EventType,
+            message.MessageId,
+            identity);
+        try
+        {
+            var propagationIdentity =
+                MessagingTelemetry.ContinueFromCurrentActivity(identity);
+            var kafkaMessage = await _mapper.ToMessageAsync(
+                topic,
+                key,
+                message,
+                propagationIdentity,
+                cancellationToken);
+            await _producer.ProduceAsync(
+                topic,
+                kafkaMessage,
+                cancellationToken);
+            activity?.SetStatus(ActivityStatusCode.Ok);
+            MessagingTelemetry.RecordPublish(
+                message.EventType,
+                topic,
+                "success",
+                Stopwatch.GetElapsedTime(startedAt));
+        }
+        catch (OperationCanceledException)
+        {
+            MessagingTelemetry.RecordPublish(
+                message.EventType,
+                topic,
+                "cancelled",
+                Stopwatch.GetElapsedTime(startedAt));
+            throw;
+        }
+        catch
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, "publish-failed");
+            MessagingTelemetry.RecordPublish(
+                message.EventType,
+                topic,
+                "failure",
+                Stopwatch.GetElapsedTime(startedAt));
+            throw;
+        }
     }
 
     public void Dispose() => _producer.Dispose();

@@ -1,3 +1,4 @@
+using System.Diagnostics.Metrics;
 using System.Text;
 using Confluent.Kafka;
 using CoffeeShop.Messaging.Abstractions;
@@ -183,6 +184,53 @@ public sealed class KafkaRetryRouterTests
     }
 
     [Fact]
+    public async Task Acknowledged_retry_and_dead_letter_forwarding_emit_bounded_metrics()
+    {
+        var measurements = new List<(string Name, KeyValuePair<string, object?>[] Tags)>();
+        using var listener = new MeterListener
+        {
+            InstrumentPublished = (instrument, meterListener) =>
+            {
+                if (instrument.Meter.Name == MessagingTelemetry.MeterName)
+                {
+                    meterListener.EnableMeasurementEvents(instrument);
+                }
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, _, tags, _) =>
+            measurements.Add((instrument.Name, tags.ToArray())));
+        listener.Start();
+        var time = new ManualTimeProvider(Start);
+        var router = CreateRouter(
+            new RecordingRetryPublisher(),
+            new AdvancingRetryDelay(time),
+            time);
+
+        await router.RouteAsync(
+            "lesson26.orders.v1",
+            CreateResult("lesson26.orders.v1", CreateMessage(), 0, 1),
+            new IOException("temporary"),
+            default);
+        await router.RouteAsync(
+            "lesson26.orders.v1",
+            CreateResult("lesson26.orders.v1", CreateMessage(), 0, 2),
+            new ArgumentException("permanent"),
+            default);
+
+        Assert.Contains(measurements, measurement =>
+            measurement.Name == "coffeeshop.messaging.retry.forwarded"
+            && HasTag(measurement.Tags, "retry.level", 2)
+            && HasTag(
+                measurement.Tags,
+                "messaging.destination.name",
+                "lesson26.orders.v1.retry.1"));
+        Assert.Contains(measurements, measurement =>
+            measurement.Name == "coffeeshop.messaging.deadletter.forwarded"
+            && HasTag(measurement.Tags, "retry.level", 1)
+            && HasTag(measurement.Tags, "event.type", "unknown"));
+    }
+
+    [Fact]
     public async Task Original_record_cannot_spoof_retry_routing_delay_or_dlt_headers()
     {
         var time = new ManualTimeProvider(Start);
@@ -333,6 +381,12 @@ public sealed class KafkaRetryRouterTests
 
     private static IHeader? FindHeader(Message<string, byte[]> message, string name) =>
         message.Headers.LastOrDefault(header => header.Key == name);
+
+    private static bool HasTag(
+        IEnumerable<KeyValuePair<string, object?>> tags,
+        string name,
+        object value) => tags.Any(tag =>
+            tag.Key == name && Equals(tag.Value, value));
 
     private sealed class ManualTimeProvider(DateTimeOffset initial) : TimeProvider
     {

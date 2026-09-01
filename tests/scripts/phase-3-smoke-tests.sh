@@ -20,6 +20,9 @@ run_smoke() {
     FAKE_PHASE3_NO_KAFKA="${FAKE_PHASE3_NO_KAFKA:-false}" \
     FAKE_PHASE3_NO_DLT="${FAKE_PHASE3_NO_DLT:-false}" \
     FAKE_PHASE3_NO_SCHEMAS="${FAKE_PHASE3_NO_SCHEMAS:-false}" \
+    FAKE_PHASE3_NO_TELEMETRY="${FAKE_PHASE3_NO_TELEMETRY:-false}" \
+    OTEL_METRICS_URL="${OTEL_METRICS_URL:-}" \
+    JAEGER_URL="${JAEGER_URL:-}" \
     "$smoke_script" 2>&1)"; then
     status=0
   else
@@ -56,6 +59,39 @@ else
   echo "PASS: authenticated Phase 3 workflow used a bearer token."
 fi
 unset AUTHENTICATION_ENABLED
+
+OTEL_METRICS_URL=http://collector.test/metrics \
+JAEGER_URL=http://jaeger.test \
+run_smoke
+expected_observability_trace='GET readiness
+POST order-v1
+GET fulfilled-v1
+GET schema subjects
+GET telemetry metrics
+GET jaeger services
+GET jaeger traces'
+if [ "$status" -ne 0 ] || [ "$trace" != "$expected_observability_trace" ]; then
+  echo "FAIL: observability smoke did not prove exported metrics and traces." >&2
+  failures=$((failures + 1))
+else
+  echo "PASS: observability smoke proved exported metrics and traces."
+fi
+unset OTEL_METRICS_URL JAEGER_URL
+
+started_at="$(date +%s)"
+SMOKE_TIMEOUT_SECONDS=1 \
+FAKE_PHASE3_NO_TELEMETRY=true \
+OTEL_METRICS_URL=http://collector.test/metrics \
+JAEGER_URL=http://jaeger.test \
+run_smoke
+elapsed_seconds=$(( $(date +%s) - started_at ))
+if [ "$status" -eq 0 ] || [ "$elapsed_seconds" -gt 2 ]; then
+  echo "FAIL: missing exported telemetry was accepted or unbounded." >&2
+  failures=$((failures + 1))
+else
+  echo "PASS: missing exported telemetry was rejected within the deadline."
+fi
+unset SMOKE_TIMEOUT_SECONDS FAKE_PHASE3_NO_TELEMETRY OTEL_METRICS_URL JAEGER_URL
 
 started_at="$(date +%s)"
 SMOKE_TIMEOUT_SECONDS=1 FAKE_PHASE3_NEVER_FULFILLED=true run_smoke
