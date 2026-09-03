@@ -1,3 +1,4 @@
+using CoffeeShop.Application.Orders;
 using CoffeeShop.Domain.Menu;
 using CoffeeShop.Domain.Orders;
 using CoffeeShop.Infrastructure.Persistence;
@@ -36,5 +37,34 @@ public sealed class OrderPersistenceTests(PostgreSqlFixture fixture)
             reloaded.LineItems.OrderBy(x => x.Name),
             first => Assert.Equal("CAPPUCCINO", first.Name),
             second => Assert.Equal("CROISSANT", second.Name));
+    }
+
+    [Fact]
+    public async Task Lists_only_orders_at_requested_location()
+    {
+        await using var dbContext = CoffeeShopDbContext.Create(fixture.ConnectionString);
+        await dbContext.Database.MigrateAsync();
+        var atlantaOrder = Order.Place(
+            OrderSource.Counter,
+            Location.Atlanta,
+            Guid.NewGuid(),
+            [new ItemSelection(ItemType.Cappuccino, PreparationStation.Barista)]);
+        var raleighOrder = Order.Place(
+            OrderSource.Counter,
+            Location.Raleigh,
+            Guid.NewGuid(),
+            [new ItemSelection(ItemType.Croissant, PreparationStation.Kitchen)]);
+
+        dbContext.Orders.AddRange(atlantaOrder, raleighOrder);
+        await dbContext.SaveChangesAsync();
+        dbContext.ChangeTracker.Clear();
+
+        var repository = new EfOrderRepository(dbContext);
+        var orders = await repository.ListAsync(
+            new OrdersByLocationSpecification(Location.Raleigh),
+            CancellationToken.None);
+
+        var order = Assert.Single(orders);
+        Assert.Equal(raleighOrder.Id, order.Id);
     }
 }

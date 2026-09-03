@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using CoffeeShop.Application.Common.Queries;
 using CoffeeShop.Application.Orders;
 using CoffeeShop.Domain.Orders;
 
@@ -19,5 +20,18 @@ public sealed class InMemoryOrderStore : IOrderRepository
     public Task<Order?> FindAsync(Guid orderId, CancellationToken cancellationToken) =>
         Task.FromResult(_orders.SingleOrDefault(x => x.Id == orderId));
 
+    public Task<IReadOnlyList<Order>> ListAsync(
+        ISpecification<Order> specification,
+        CancellationToken cancellationToken
+    )
+    {
+        IReadOnlyList<Order> orders = _orders.Where(specification.Criteria.Compile())
+            .OrderBy(order => order.Id)
+            .ToArray();
+        
+        return Task.FromResult(orders);
+    }
+    
+    
     public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

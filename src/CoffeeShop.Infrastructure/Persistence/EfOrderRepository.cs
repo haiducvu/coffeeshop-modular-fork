@@ -1,3 +1,4 @@
+using CoffeeShop.Application.Common.Queries;
 using CoffeeShop.Application.Orders;
 using CoffeeShop.Domain.Orders;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +17,21 @@ public sealed class EfOrderRepository(CoffeeShopDbContext dbContext) : IOrderRep
         dbContext.Orders
             .Include(x => x.LineItems)
             .SingleOrDefaultAsync(x => x.Id == orderId, cancellationToken);
-    
+
+    public async Task<IReadOnlyList<Order>> ListAsync(
+        ISpecification<Order> specification,
+        CancellationToken cancellationToken = default)
+    {
+        IQueryable<Order> query = dbContext.Orders.AsNoTracking();
+        query = query.Where(specification.Criteria);
+
+        foreach (var include in specification.Includes)
+        {
+            query = query.Include(include);
+        }
+        
+        return await query.OrderBy(order => order.Id).ToListAsync(cancellationToken);
+    }
     
     public Task SaveChangesAsync(CancellationToken cancellationToken = default) => dbContext.SaveChangesAsync(cancellationToken);
 }
