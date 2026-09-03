@@ -8,6 +8,7 @@ using CoffeeShop.Messaging.Kafka;
 
 namespace CoffeeShop.MessagingTests.Telemetry;
 
+[Collection(MessagingTelemetryCollection.Name)]
 public sealed class MessagingActivityTests
 {
     private const string TraceParent =
@@ -35,6 +36,7 @@ public sealed class MessagingActivityTests
         string producerTraceParent;
         ActivitySpanId producerSpanId;
         using (var producer = MessagingTelemetry.StartProducerActivity(
+                   "kafka",
                    "coffeeshop.orders.v1",
                    "coffeeshop.order-placed",
                    messageId,
@@ -57,6 +59,7 @@ public sealed class MessagingActivityTests
         }
 
         using (var consumer = MessagingTelemetry.StartConsumerActivity(
+                   "kafka",
                    "coffeeshop.orders.v1",
                    "coffeeshop.order-placed",
                    "barista",
@@ -108,6 +111,7 @@ public sealed class MessagingActivityTests
         var identityScope = new KafkaMessageIdentityScope(accessor);
 
         using var consumer = MessagingTelemetry.StartConsumerActivity(
+            "kafka",
             "coffeeshop.orders.v1",
             OrderPlacedV1.EventType,
             "barista",

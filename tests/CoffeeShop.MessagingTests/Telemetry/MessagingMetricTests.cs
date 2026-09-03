@@ -3,6 +3,7 @@ using CoffeeShop.Messaging.Abstractions;
 
 namespace CoffeeShop.MessagingTests.Telemetry;
 
+[Collection(MessagingTelemetryCollection.Name)]
 public sealed class MessagingMetricTests
 {
     private static readonly HashSet<string> AllowedTagNames =

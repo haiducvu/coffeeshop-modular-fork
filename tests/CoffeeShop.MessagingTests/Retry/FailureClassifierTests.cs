@@ -1,6 +1,5 @@
 using System.Text.Json;
 using CoffeeShop.Messaging.Abstractions;
-using CoffeeShop.Messaging.Kafka.Retry;
 
 namespace CoffeeShop.MessagingTests.Retry;
 

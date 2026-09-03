@@ -36,11 +36,13 @@ public static class MessagingTelemetry
         "coffeeshop.messaging.deadletter.forwarded");
 
     public static Activity? StartProducerActivity(
+        string messagingSystem,
         string destination,
         string eventType,
         Guid messageId,
         MessageIdentity identity)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(messagingSystem);
         ArgumentException.ThrowIfNullOrWhiteSpace(destination);
         ArgumentException.ThrowIfNullOrWhiteSpace(eventType);
         ArgumentNullException.ThrowIfNull(identity);
@@ -51,6 +53,7 @@ public static class MessagingTelemetry
             parent);
         SetMessagingTags(
             activity,
+            messagingSystem,
             destination,
             eventType,
             messageId,
@@ -59,6 +62,7 @@ public static class MessagingTelemetry
     }
 
     public static Activity? StartConsumerActivity(
+        string messagingSystem,
         string destination,
         string eventType,
         string consumerRole,
@@ -68,6 +72,7 @@ public static class MessagingTelemetry
         string? traceParent,
         string? traceState)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(messagingSystem);
         ArgumentException.ThrowIfNullOrWhiteSpace(destination);
         ArgumentException.ThrowIfNullOrWhiteSpace(eventType);
         ArgumentException.ThrowIfNullOrWhiteSpace(consumerRole);
@@ -81,7 +86,13 @@ public static class MessagingTelemetry
             $"{eventType} process",
             ActivityKind.Consumer,
             ParseParent(traceParent, traceState));
-        SetMessagingTags(activity, destination, eventType, messageId, correlationId);
+        SetMessagingTags(
+            activity,
+            messagingSystem,
+            destination,
+            eventType,
+            messageId,
+            correlationId);
         activity?.SetTag("messaging.consumer.group.name", consumerRole);
         activity?.SetTag("messaging.delivery.attempt", deliveryAttempt);
         return activity;
@@ -214,12 +225,13 @@ public static class MessagingTelemetry
 
     private static void SetMessagingTags(
         Activity? activity,
+        string messagingSystem,
         string destination,
         string eventType,
         Guid messageId,
         string correlationId)
     {
-        activity?.SetTag("messaging.system", "kafka");
+        activity?.SetTag("messaging.system", messagingSystem);
         activity?.SetTag("messaging.destination.name", destination);
         activity?.SetTag("event.type", eventType);
         activity?.SetTag("messaging.message.id", messageId.ToString("D"));

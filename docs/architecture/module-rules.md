@@ -9,8 +9,12 @@ Các test trong `CoffeeShop.ArchitectureTests` biến boundary của modular mon
 - Contracts không được phụ thuộc host hoặc business module; chúng là message contract in-process dùng chung với SharedKernel.
 - Namespace `.Domain` không được phụ thuộc ASP.NET Core, EF Core, MediatR, Redis, JWT, Serilog, Kafka hoặc Dapr.
 - API host chỉ dùng public seam gốc `CoffeeShop.Modules.Counter`; không được dùng namespace implementation `Application`, `Domain`, `Infrastructure` hoặc `.Internal` của Counter.
+- Messaging abstractions và business modules không được phụ thuộc Kafka/Dapr adapter; hai adapter cũng không được phụ thuộc nhau hay module persistence.
+- Chỉ API composition root và `CoffeeShop.Messaging.Dapr` được dùng Dapr framework types.
 
-Architecture test nạp API cùng năm assembly boundary (Counter, Barista, Kitchen, Contracts và SharedKernel) một lần trong `ArchitectureTestContext`. `Assembly.FullName` được dùng cho `ResideInAssembly` vì ArchUnitNET so khớp full assembly name.
+Architecture test nạp API, contracts, messaging adapters/abstractions cùng các module boundary một lần trong
+`ArchitectureTestContext`. `Assembly.FullName` được dùng cho `ResideInAssembly` vì ArchUnitNET so khớp full
+assembly name.
 
 ## Thử nghiệm mutation có chủ đích
 

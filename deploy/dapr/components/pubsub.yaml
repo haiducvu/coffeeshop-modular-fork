@@ -1,0 +1,16 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: coffeeshop-pubsub
+spec:
+  type: pubsub.kafka
+  version: v1
+  metadata:
+    - name: brokers
+      value: kafka:19092
+    - name: authType
+      value: none
+    - name: consumerGroup
+      value: coffeeshop-dapr
+    - name: clientID
+      value: coffeeshop-dapr

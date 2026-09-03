@@ -59,13 +59,21 @@ write_correlation_header() {
 case "$url" in
   */health/ready)
     trace "GET readiness"
-    if [ "${FAKE_PHASE3_NO_KAFKA:-false}" = true ]; then
+    if [ "${MESSAGING_ADAPTER:-Kafka}" = Dapr ] \
+      && [ "${FAKE_PHASE3_NO_DAPR:-false}" != true ]; then
+      printf '%s' '{"status":"Healthy","checks":[{"name":"dapr","status":"Healthy","durationMilliseconds":1},{"name":"postgresql","status":"Healthy","durationMilliseconds":1},{"name":"redis","status":"Healthy","durationMilliseconds":1}]}'
+    elif [ "${FAKE_PHASE3_NO_KAFKA:-false}" = true ] \
+      || [ "${FAKE_PHASE3_NO_DAPR:-false}" = true ]; then
       printf '%s' '{"status":"Healthy","checks":[{"name":"postgresql","status":"Healthy","durationMilliseconds":1},{"name":"redis","status":"Healthy","durationMilliseconds":1}]}'
     elif [ "${AUTHENTICATION_ENABLED:-false}" = true ]; then
       printf '%s' '{"status":"Healthy","checks":[{"name":"identity-provider","status":"Healthy","durationMilliseconds":1},{"name":"kafka","status":"Healthy","durationMilliseconds":1},{"name":"postgresql","status":"Healthy","durationMilliseconds":1},{"name":"redis","status":"Healthy","durationMilliseconds":1},{"name":"schema-registry","status":"Healthy","durationMilliseconds":1}]}'
     else
       printf '%s' '{"status":"Healthy","checks":[{"name":"kafka","status":"Healthy","durationMilliseconds":1},{"name":"postgresql","status":"Healthy","durationMilliseconds":1},{"name":"redis","status":"Healthy","durationMilliseconds":1},{"name":"schema-registry","status":"Healthy","durationMilliseconds":1}]}'
     fi
+    ;;
+  */v1.0/metadata)
+    trace "GET dapr metadata"
+    printf '%s' '{"id":"coffeeshop-api","components":[{"name":"coffeeshop-pubsub","type":"pubsub.kafka"}],"subscriptions":[{"topic":"coffeeshop.orders.v1"},{"topic":"coffeeshop.preparation.v1"}]}'
     ;;
   */protocol/openid-connect/token)
     if [ "$scope" != openid ]; then

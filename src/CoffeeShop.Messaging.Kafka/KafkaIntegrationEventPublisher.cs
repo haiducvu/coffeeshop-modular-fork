@@ -39,6 +39,7 @@ internal sealed class KafkaIntegrationEventPublisher : IIntegrationEventPublishe
             identity.TraceState);
         var startedAt = Stopwatch.GetTimestamp();
         using var activity = MessagingTelemetry.StartProducerActivity(
+            "kafka",
             topic,
             message.EventType,
             message.MessageId,

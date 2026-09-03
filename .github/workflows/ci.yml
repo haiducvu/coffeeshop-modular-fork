@@ -34,7 +34,7 @@ jobs:
       - name: Build SignalR client
         run: npm run build --prefix src/CoffeeShop.SignalRClient
       - name: Build container images
-        run: docker compose --profile demo --profile identity --profile observability build
+        run: docker compose --profile demo --profile identity --profile observability --profile dapr build
       - name: Run Redis-enabled Phase 1 smoke test
         run: |
           trap 'docker compose --profile demo --profile identity down --volumes --remove-orphans' EXIT
@@ -62,3 +62,10 @@ jobs:
           ./tests/scripts/phase-3-smoke-tests.sh
           docker compose --profile observability up -d postgres redis kafka schema-registry jaeger otel-collector api
           OTEL_METRICS_URL=http://localhost:9464/metrics JAEGER_URL=http://localhost:16686 ./scripts/phase-3-smoke.sh
+      - name: Run Dapr Phase 3 smoke test
+        env:
+          MESSAGING_ADAPTER: Dapr
+        run: |
+          trap 'docker compose --profile dapr down --volumes --remove-orphans' EXIT
+          docker compose --profile dapr up -d postgres redis kafka api dapr-sidecar
+          ./scripts/phase-3-smoke.sh

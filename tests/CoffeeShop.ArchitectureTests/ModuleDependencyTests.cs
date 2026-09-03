@@ -5,6 +5,7 @@ using ArchUnitNET.xUnit;
 using CoffeeShop.Contracts.Menu;
 using CoffeeShop.IntegrationContracts;
 using CoffeeShop.Messaging.Abstractions;
+using CoffeeShop.Messaging.Dapr;
 using CoffeeShop.Messaging.Kafka;
 using CoffeeShop.Modules.Barista;
 using CoffeeShop.Modules.Counter;
@@ -82,7 +83,7 @@ public sealed class ModuleDependencyTests
     }
 
     [Fact]
-    public void Messaging_layers_must_keep_Kafka_out_of_contracts_and_modules()
+    public void Messaging_layers_must_keep_broker_adapters_out_of_contracts_and_modules()
     {
         ModuleDependencyRules.MustNotDependOn(
                 ArchitectureTestContext.MessagingAbstractionTypes,
@@ -95,9 +96,24 @@ public sealed class ModuleDependencyTests
                 "The Kafka adapter must not depend on the API or business modules.")
             .Check(ArchitectureTestContext.Architecture);
         ModuleDependencyRules.MustNotDependOn(
+                ArchitectureTestContext.DaprAdapterTypes,
+                ArchitectureTestContext.DaprAdapterForbiddenTypes,
+                "The Dapr adapter must not depend on the API, Kafka, or business modules.")
+            .Check(ArchitectureTestContext.Architecture);
+        ModuleDependencyRules.MustNotDependOn(
                 ArchitectureTestContext.BusinessModuleTypes,
                 ArchitectureTestContext.KafkaAdapterTypes,
                 "Business modules must not depend on the Kafka adapter.")
+            .Check(ArchitectureTestContext.Architecture);
+        ModuleDependencyRules.MustNotDependOn(
+                ArchitectureTestContext.BusinessModuleTypes,
+                ArchitectureTestContext.DaprAdapterTypes,
+                "Business modules must not depend on the Dapr adapter.")
+            .Check(ArchitectureTestContext.Architecture);
+        ModuleDependencyRules.MustNotDependOn(
+                ArchitectureTestContext.DaprForbiddenConsumerTypes,
+                ArchitectureTestContext.DaprFrameworkTypes,
+                "Only the API composition root and Dapr adapter may use Dapr framework types.")
             .Check(ArchitectureTestContext.Architecture);
     }
 }
@@ -110,6 +126,7 @@ internal static class ArchitectureTestContext
             typeof(ItemType).Assembly,
             typeof(IIntegrationEvent).Assembly,
             typeof(IIntegrationEventPublisher).Assembly,
+            typeof(DaprServiceCollectionExtensions).Assembly,
             typeof(KafkaServiceCollectionExtensions).Assembly,
             typeof(BaristaModuleServiceCollectionExtensions).Assembly,
             typeof(ICounterModule).Assembly,
@@ -131,6 +148,9 @@ internal static class ArchitectureTestContext
 
     internal static readonly IObjectProvider<IType> KafkaAdapterTypes = Types().That()
         .ResideInAssembly(FullAssemblyName(typeof(KafkaServiceCollectionExtensions).Assembly));
+
+    internal static readonly IObjectProvider<IType> DaprAdapterTypes = Types().That()
+        .ResideInAssembly(FullAssemblyName(typeof(DaprServiceCollectionExtensions).Assembly));
 
     internal static readonly IObjectProvider<IType> BaristaTypes = Types().That()
         .ResideInAssembly(FullAssemblyName(typeof(BaristaModuleServiceCollectionExtensions).Assembly));
@@ -177,6 +197,8 @@ internal static class ArchitectureTestContext
         .Or()
         .Are(SharedKernelTypes)
         .Or()
+        .Are(DaprAdapterTypes)
+        .Or()
         .Are(KafkaAdapterTypes)
         .Or()
         .Are(HostAndModuleTypes);
@@ -187,6 +209,31 @@ internal static class ArchitectureTestContext
         .Are(SharedKernelTypes)
         .Or()
         .Are(HostAndModuleTypes);
+
+    internal static readonly IObjectProvider<IType> DaprAdapterForbiddenTypes = Types().That()
+        .Are(ContractsTypes)
+        .Or()
+        .Are(SharedKernelTypes)
+        .Or()
+        .Are(KafkaAdapterTypes)
+        .Or()
+        .Are(HostAndModuleTypes);
+
+    internal static readonly IObjectProvider<IType> DaprForbiddenConsumerTypes = Types().That()
+        .Are(ContractsTypes)
+        .Or()
+        .Are(IntegrationContractTypes)
+        .Or()
+        .Are(MessagingAbstractionTypes)
+        .Or()
+        .Are(KafkaAdapterTypes)
+        .Or()
+        .Are(BusinessModuleTypes)
+        .Or()
+        .Are(SharedKernelTypes);
+
+    internal static readonly IObjectProvider<IType> DaprFrameworkTypes = Types().That()
+        .ResideInNamespaceMatching("Dapr(\\..*)?");
 
     internal static readonly IObjectProvider<IType> ForbiddenFrameworkTypes = Types().That()
         .ResideInNamespaceMatching(

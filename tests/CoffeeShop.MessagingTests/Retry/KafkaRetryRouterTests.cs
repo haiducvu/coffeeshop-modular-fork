@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace CoffeeShop.MessagingTests.Retry;
 
+[Collection(MessagingTelemetryCollection.Name)]
 public sealed class KafkaRetryRouterTests
 {
     private static readonly DateTimeOffset Start =

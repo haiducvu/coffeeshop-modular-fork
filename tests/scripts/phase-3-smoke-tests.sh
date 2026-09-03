@@ -16,8 +16,10 @@ run_smoke() {
     FAKE_PHASE3_STATE="$state_file" \
     SMOKE_TIMEOUT_SECONDS="${SMOKE_TIMEOUT_SECONDS:-5}" \
     AUTHENTICATION_ENABLED="${AUTHENTICATION_ENABLED:-false}" \
+    MESSAGING_ADAPTER="${MESSAGING_ADAPTER:-Kafka}" \
     FAKE_PHASE3_NEVER_FULFILLED="${FAKE_PHASE3_NEVER_FULFILLED:-false}" \
     FAKE_PHASE3_NO_KAFKA="${FAKE_PHASE3_NO_KAFKA:-false}" \
+    FAKE_PHASE3_NO_DAPR="${FAKE_PHASE3_NO_DAPR:-false}" \
     FAKE_PHASE3_NO_DLT="${FAKE_PHASE3_NO_DLT:-false}" \
     FAKE_PHASE3_NO_SCHEMAS="${FAKE_PHASE3_NO_SCHEMAS:-false}" \
     FAKE_PHASE3_NO_TELEMETRY="${FAKE_PHASE3_NO_TELEMETRY:-false}" \
@@ -59,6 +61,19 @@ else
   echo "PASS: authenticated Phase 3 workflow used a bearer token."
 fi
 unset AUTHENTICATION_ENABLED
+
+MESSAGING_ADAPTER=Dapr run_smoke
+expected_dapr_trace='GET readiness
+GET dapr metadata
+POST order-v1
+GET fulfilled-v1'
+if [ "$status" -ne 0 ] || [ "$trace" != "$expected_dapr_trace" ]; then
+  echo "FAIL: Dapr Phase 3 workflow did not use sidecar discovery and fulfillment." >&2
+  failures=$((failures + 1))
+else
+  echo "PASS: Dapr Phase 3 workflow reached fulfillment through the sidecar."
+fi
+unset MESSAGING_ADAPTER
 
 OTEL_METRICS_URL=http://collector.test/metrics \
 JAEGER_URL=http://jaeger.test \
@@ -118,6 +133,20 @@ else
   echo "PASS: readiness without Kafka was rejected within the deadline."
 fi
 unset SMOKE_TIMEOUT_SECONDS FAKE_PHASE3_NO_KAFKA
+
+started_at="$(date +%s)"
+SMOKE_TIMEOUT_SECONDS=1 \
+MESSAGING_ADAPTER=Dapr \
+FAKE_PHASE3_NO_DAPR=true \
+run_smoke
+elapsed_seconds=$(( $(date +%s) - started_at ))
+if [ "$status" -eq 0 ] || [ "$elapsed_seconds" -gt 2 ]; then
+  echo "FAIL: readiness without Dapr was accepted or unbounded." >&2
+  failures=$((failures + 1))
+else
+  echo "PASS: readiness without Dapr was rejected within the deadline."
+fi
+unset SMOKE_TIMEOUT_SECONDS MESSAGING_ADAPTER FAKE_PHASE3_NO_DAPR
 
 FAKE_PHASE3_NO_SCHEMAS=true run_smoke
 case "$output" in

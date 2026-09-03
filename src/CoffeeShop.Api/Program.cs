@@ -18,6 +18,7 @@ using CoffeeShop.Api.Telemetry;
 using CoffeeShop.Contracts.Orders;
 using CoffeeShop.IntegrationContracts.Orders;
 using CoffeeShop.Messaging.Abstractions;
+using CoffeeShop.Messaging.Dapr;
 using CoffeeShop.Modules.Barista;
 using CoffeeShop.Modules.Barista.Infrastructure.Outbox;
 using CoffeeShop.Modules.Counter;
@@ -78,36 +79,52 @@ if (authenticationEnabled)
     builder.Services.AddCoffeeShopAuthorization();
 }
 var healthChecks = builder.Services.AddHealthChecks();
+var messagingAdapter = ResolveMessagingAdapter(builder.Configuration["Messaging:Adapter"]);
 var kafkaSection = builder.Configuration.GetSection(KafkaMessagingOptions.SectionName);
 var kafkaEnabled = bool.TryParse(kafkaSection["Enabled"], out var enabled)
     && enabled;
 if (kafkaEnabled)
 {
-    builder.Services.AddKafkaMessaging(options =>
+    if (messagingAdapter == MessagingAdapter.Kafka)
     {
-        kafkaSection.Bind(options);
-    });
-    healthChecks.AddCheck<KafkaReadinessHealthCheck>(
-        "kafka",
-        tags: ["ready"],
-        timeout: TimeSpan.FromSeconds(2));
-    if (Enum.TryParse<KafkaProducerFormat>(
-            kafkaSection[nameof(KafkaMessagingOptions.ProducerFormat)],
-            ignoreCase: true,
-            out var producerFormat)
-        && producerFormat == KafkaProducerFormat.Avro)
+        builder.Services.AddKafkaMessaging(options =>
+        {
+            kafkaSection.Bind(options);
+        });
+        healthChecks.AddCheck<KafkaReadinessHealthCheck>(
+            "kafka",
+            tags: ["ready"],
+            timeout: TimeSpan.FromSeconds(2));
+        if (Enum.TryParse<KafkaProducerFormat>(
+                kafkaSection[nameof(KafkaMessagingOptions.ProducerFormat)],
+                ignoreCase: true,
+                out var producerFormat)
+            && producerFormat == KafkaProducerFormat.Avro)
+        {
+            builder.Services.AddHttpClient(
+                SchemaRegistryReadinessHealthCheck.HttpClientName,
+                client => client.Timeout = TimeSpan.FromSeconds(2));
+            healthChecks.AddCheck<SchemaRegistryReadinessHealthCheck>(
+                "schema-registry",
+                tags: ["ready"],
+                timeout: TimeSpan.FromSeconds(3));
+        }
+        builder.Services.AddKafkaConsumer<OrderPlacedV1>("barista");
+        builder.Services.AddKafkaConsumer<OrderPlacedV1>("kitchen");
+        builder.Services.AddKafkaConsumer<OrderItemPreparedV1>("counter");
+    }
+    else
     {
+        var daprSection = builder.Configuration.GetSection(DaprMessagingOptions.SectionName);
+        builder.Services.AddDaprMessaging(daprSection.Bind);
         builder.Services.AddHttpClient(
-            SchemaRegistryReadinessHealthCheck.HttpClientName,
+            DaprReadinessHealthCheck.HttpClientName,
             client => client.Timeout = TimeSpan.FromSeconds(2));
-        healthChecks.AddCheck<SchemaRegistryReadinessHealthCheck>(
-            "schema-registry",
+        healthChecks.AddCheck<DaprReadinessHealthCheck>(
+            "dapr",
             tags: ["ready"],
             timeout: TimeSpan.FromSeconds(3));
     }
-    builder.Services.AddKafkaConsumer<OrderPlacedV1>("barista");
-    builder.Services.AddKafkaConsumer<OrderPlacedV1>("kitchen");
-    builder.Services.AddKafkaConsumer<OrderItemPreparedV1>("counter");
 }
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IPreparationDelay, TaskPreparationDelay>();
@@ -203,6 +220,11 @@ app.UseSerilogRequestLogging(options =>
             Activity.Current?.TraceId.ToString() ?? httpContext.TraceIdentifier);
 });
 app.UseExceptionHandler();
+if (kafkaEnabled && messagingAdapter == MessagingAdapter.Dapr)
+{
+    app.UseDaprAppChannelAuthentication();
+    app.UseCloudEvents();
+}
 app.UseCors(clientCorsPolicy);
 if (authenticationEnabled)
 {
@@ -220,6 +242,10 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     Predicate = registration => registration.Tags.Contains("ready"),
     ResponseWriter = WriteHealthResponseAsync
 });
+if (kafkaEnabled && messagingAdapter == MessagingAdapter.Dapr)
+{
+    app.MapDaprSubscriptionEndpoints();
+}
 app.MapPlaceOrder();
 app.MapGetFulfilledOrders();
 if (authenticationEnabled)
@@ -259,6 +285,23 @@ if (!app.Environment.IsEnvironment("Testing"))
 }
 
 await app.RunAsync();
+}
+
+static MessagingAdapter ResolveMessagingAdapter(string? value)
+{
+    if (string.IsNullOrWhiteSpace(value))
+    {
+        return MessagingAdapter.Kafka;
+    }
+
+    if (!Enum.TryParse<MessagingAdapter>(value, ignoreCase: true, out var adapter)
+        || !Enum.IsDefined(adapter))
+    {
+        throw new InvalidOperationException(
+            "Messaging:Adapter must be Kafka or Dapr.");
+    }
+
+    return adapter;
 }
 
 static Task WriteHealthResponseAsync(HttpContext context, HealthReport report)

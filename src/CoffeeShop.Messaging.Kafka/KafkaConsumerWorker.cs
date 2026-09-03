@@ -63,6 +63,7 @@ internal sealed class KafkaConsumerWorker<TPayload>(
                                     consumed.Message.Headers);
                             var startedAt = Stopwatch.GetTimestamp();
                             using var activity = MessagingTelemetry.StartConsumerActivity(
+                                "kafka",
                                 consumed.Topic,
                                 envelope.EventType,
                                 consumerRole,

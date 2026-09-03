@@ -98,6 +98,12 @@ services:
       Authentication__Authority: ${AUTHENTICATION_AUTHORITY:-http://keycloak:8080/realms/coffeeshop}
       Authentication__Audience: ${AUTHENTICATION_AUDIENCE:-coffeeshop-api}
       Authentication__RequireHttpsMetadata: ${AUTHENTICATION_REQUIRE_HTTPS_METADATA:-false}
+      Messaging__Adapter: ${MESSAGING_ADAPTER:-Kafka}
+      Messaging__Dapr__PubSubName: ${DAPR_PUBSUB_NAME:-coffeeshop-pubsub}
+      Messaging__Dapr__TopicPrefix: ${DAPR_TOPIC_PREFIX:-coffeeshop}
+      Messaging__Dapr__AppApiToken: ${DAPR_APP_API_TOKEN:-coffeeshop-dapr-local-token}
+      Messaging__Dapr__SidecarHttpEndpoint: ${DAPR_SIDECAR_HTTP_ENDPOINT:-http://dapr-sidecar:3500}
+      Messaging__Dapr__SidecarGrpcEndpoint: ${DAPR_SIDECAR_GRPC_ENDPOINT:-http://dapr-sidecar:50001}
       Messaging__Kafka__Enabled: ${KAFKA_ENABLED:-true}
       Messaging__Kafka__BootstrapServers: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:19092}
       Messaging__Kafka__SchemaRegistryUrl: ${SCHEMA_REGISTRY_URL:-http://schema-registry:8081}
@@ -140,6 +146,35 @@ services:
       timeout: 3s
       retries: 20
       start_period: 10s
+
+  dapr-sidecar:
+    profiles: ["dapr"]
+    image: daprio/daprd:1.18.3
+    environment:
+      APP_API_TOKEN: ${DAPR_APP_API_TOKEN:-coffeeshop-dapr-local-token}
+    command:
+      - ./daprd
+      - --app-id
+      - coffeeshop-api
+      - --app-channel-address
+      - api
+      - --app-port
+      - "8080"
+      - --dapr-http-port
+      - "3500"
+      - --resources-path
+      - /components
+      - --log-level
+      - warn
+    ports:
+      - "127.0.0.1:${DAPR_HTTP_PORT:-3500}:3500"
+    volumes:
+      - ./deploy/dapr/components:/components:ro
+    depends_on:
+      api:
+        condition: service_started
+      kafka:
+        condition: service_healthy
 
   signalr-client:
     build:

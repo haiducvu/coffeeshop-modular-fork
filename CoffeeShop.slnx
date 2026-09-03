@@ -5,6 +5,7 @@
     <Project Path="src/CoffeeShop.DataGen/CoffeeShop.DataGen.csproj" />
     <Project Path="src/CoffeeShop.IntegrationContracts/CoffeeShop.IntegrationContracts.csproj" />
     <Project Path="src/CoffeeShop.Messaging.Abstractions/CoffeeShop.Messaging.Abstractions.csproj" />
+    <Project Path="src/CoffeeShop.Messaging.Dapr/CoffeeShop.Messaging.Dapr.csproj" />
     <Project Path="src/CoffeeShop.Messaging.Kafka/CoffeeShop.Messaging.Kafka.csproj" />
     <Project Path="src/CoffeeShop.Modules.Barista/CoffeeShop.Modules.Barista.csproj" />
     <Project Path="src/CoffeeShop.Modules.Counter/CoffeeShop.Modules.Counter.csproj" />

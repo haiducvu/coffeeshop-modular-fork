@@ -1,9 +1,8 @@
 using System.Text.Json;
-using CoffeeShop.Messaging.Abstractions;
 
-namespace CoffeeShop.Messaging.Kafka.Retry;
+namespace CoffeeShop.Messaging.Abstractions;
 
-internal sealed class DefaultIntegrationFailureClassifier
+public sealed class DefaultIntegrationFailureClassifier
     : IIntegrationFailureClassifier
 {
     public IntegrationFailure Classify(Exception exception)

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using CoffeeShop.Api.Health;
+using CoffeeShop.Messaging.Dapr;
 using CoffeeShop.Messaging.Kafka;
 
 namespace CoffeeShop.ApiTests;
@@ -127,6 +128,41 @@ public sealed class HealthSemanticsTests
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
         Assert.Contains("schema-registry", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Dapr_sidecar_failure_affects_readiness_but_not_liveness()
+    {
+        await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting("Authentication:Enabled", "false");
+            builder.UseSetting("ConnectionStrings:Redis", string.Empty);
+            builder.UseSetting("Messaging:Adapter", "Dapr");
+            builder.UseSetting("Messaging:Kafka:Enabled", "true");
+            builder.UseSetting("Messaging:Kafka:BootstrapServers", string.Empty);
+            builder.UseSetting("Messaging:Dapr:PubSubName", "coffeeshop-pubsub");
+            builder.UseSetting("Messaging:Dapr:TopicPrefix", "coffeeshop");
+            builder.UseSetting(
+                "Messaging:Dapr:AppApiToken",
+                "lesson-30-health-test-token");
+            builder.UseSetting("Messaging:Dapr:SidecarHttpEndpoint", "http://dapr.test");
+            builder.ConfigureServices(services => services
+                .AddHttpClient(DaprReadinessHealthCheck.HttpClientName)
+                .ConfigurePrimaryHttpMessageHandler(() =>
+                    new StaticResponseHandler(HttpStatusCode.ServiceUnavailable)));
+        });
+        using var client = factory.CreateClient();
+
+        using var live = await client.GetAsync("/health/live");
+        using var ready = await client.GetAsync("/health/ready");
+        var readyBody = await ready.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, live.StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, ready.StatusCode);
+        Assert.Contains("dapr", readyBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("kafka", readyBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("schema-registry", readyBody, StringComparison.Ordinal);
     }
 
     private static WebApplicationFactory<Program> CreateFactory(

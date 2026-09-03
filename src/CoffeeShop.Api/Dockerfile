@@ -8,6 +8,7 @@ COPY src/CoffeeShop.Api/CoffeeShop.Api.csproj src/CoffeeShop.Api/
 COPY src/CoffeeShop.Contracts/CoffeeShop.Contracts.csproj src/CoffeeShop.Contracts/
 COPY src/CoffeeShop.IntegrationContracts/CoffeeShop.IntegrationContracts.csproj src/CoffeeShop.IntegrationContracts/
 COPY src/CoffeeShop.Messaging.Abstractions/CoffeeShop.Messaging.Abstractions.csproj src/CoffeeShop.Messaging.Abstractions/
+COPY src/CoffeeShop.Messaging.Dapr/CoffeeShop.Messaging.Dapr.csproj src/CoffeeShop.Messaging.Dapr/
 COPY src/CoffeeShop.Messaging.Kafka/CoffeeShop.Messaging.Kafka.csproj src/CoffeeShop.Messaging.Kafka/
 COPY src/CoffeeShop.Modules.Barista/CoffeeShop.Modules.Barista.csproj src/CoffeeShop.Modules.Barista/
 COPY src/CoffeeShop.Modules.Counter/CoffeeShop.Modules.Counter.csproj src/CoffeeShop.Modules.Counter/
@@ -19,6 +20,7 @@ COPY src/CoffeeShop.Api/ src/CoffeeShop.Api/
 COPY src/CoffeeShop.Contracts/ src/CoffeeShop.Contracts/
 COPY src/CoffeeShop.IntegrationContracts/ src/CoffeeShop.IntegrationContracts/
 COPY src/CoffeeShop.Messaging.Abstractions/ src/CoffeeShop.Messaging.Abstractions/
+COPY src/CoffeeShop.Messaging.Dapr/ src/CoffeeShop.Messaging.Dapr/
 COPY src/CoffeeShop.Messaging.Kafka/ src/CoffeeShop.Messaging.Kafka/
 COPY src/CoffeeShop.Modules.Barista/ src/CoffeeShop.Modules.Barista/
 COPY src/CoffeeShop.Modules.Counter/ src/CoffeeShop.Modules.Counter/

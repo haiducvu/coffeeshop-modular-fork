@@ -117,6 +117,22 @@ low-cardinality cho publish/consume, Outbox, Inbox, retry và DLT. OTLP exporter
 chúng thành business-readiness dependency. Xem
 [tài liệu Lesson 29](docs/lessons/29-opentelemetry.md).
 
+Lesson 30 hoàn tất [checkpoint Phase 3](docs/checkpoints/phase-3.md) bằng một Dapr pub/sub adapter opt-in.
+Kafka vẫn là mặc định và reference reliability path; Dapr dùng cùng semantic topics, envelope, Outbox/Inbox,
+handler và telemetry ports qua sidecar có Kafka component. Architecture tests giữ Dapr ngoài contracts/module;
+readiness kiểm sidecar HTTP, publisher cấu hình riêng gRPC data plane và app-channel token bảo vệ callback.
+Chạy fresh Dapr workflow (override `DAPR_APP_API_TOKEN` bằng secret thật khi deploy):
+
+```bash
+docker compose --profile dapr down --volumes --remove-orphans
+MESSAGING_ADAPTER=Dapr docker compose --profile dapr up -d --build \
+  postgres redis kafka api dapr-sidecar
+MESSAGING_ADAPTER=Dapr ./scripts/phase-3-smoke.sh
+```
+
+Xem [tài liệu Lesson 30](docs/lessons/30-dapr-pubsub-adapter.md) để so sánh app-owned Kafka retry/DLT với
+runtime-owned Dapr delivery semantics và hiểu trade-off của sidecar.
+
 Dọn containers và database volume local:
 
 ```bash
@@ -173,6 +189,7 @@ Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên data
 - [Lesson 27 — Correlation và causation xuyên HTTP/Kafka](docs/lessons/27-correlation-and-causation.md)
 - [Lesson 28 — Avro và Schema Registry governance](docs/lessons/28-avro-schema-evolution.md)
 - [Lesson 29 — OpenTelemetry cho distributed workflow](docs/lessons/29-opentelemetry.md)
+- [Lesson 30 — Dapr pub/sub adapter opt-in](docs/lessons/30-dapr-pubsub-adapter.md)
 
 ## Nhánh Git
 
