@@ -14,3 +14,5 @@ spec:
       value: coffeeshop-dapr
     - name: clientID
       value: coffeeshop-dapr
+    - name: initialOffset
+      value: oldest

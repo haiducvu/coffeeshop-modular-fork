@@ -113,6 +113,7 @@ Dapr stable APIs; patch versions được pin riêng theo artifact hiện có. S
 - gọi API app channel tại `api:8080`;
 - expose HTTP API local tại port 3500;
 - load duy nhất Kafka pub/sub component read-only;
+- đặt `initialOffset=oldest` để consumer group mới không bỏ event được publish trong startup race;
 - không chạy placement vì không có actor/workflow;
 - phụ thuộc Kafka healthy, trong khi API readiness phụ thuộc `/v1.0/healthz` của sidecar.
 
@@ -179,6 +180,7 @@ tests giữ framework ở API/Dapr adapter; real smoke kiểm toàn bộ runtime
 - Sidecar chết: `/health/live` vẫn 200, `/health/ready` thành 503 và Outbox giữ message để retry.
 - gRPC endpoint sai nhưng HTTP endpoint đúng: health có thể xanh, publish vẫn fail; data-plane smoke bắt lỗi.
 - Component không load hoặc thiếu subscription: metadata assertion fail trước khi tạo order.
+- Consumer group chưa assign partition: `oldest` vẫn đọc event đầu tiên sau khi group sẵn sàng.
 - Handler transient-fail: endpoint trả `RETRY`; handler đã commit trước đó được Inbox deduplicate.
 - Contract permanent-fail: endpoint trả `DROP`; không có application DLT trên Dapr path của bài này.
 - CloudEvent malformed: endpoint ACK `DROP`, không retry vô hạn; request thiếu/sai app token bị 401.

@@ -17,21 +17,16 @@ process_hex="$(printf '%04x' "$(( $$ % 65536 ))")"
 loyalty_member_id="11111111-2222-3333-4444-${timestamp_hex}${process_hex}"
 
 run_diagnostic() {
-  remaining=$(( deadline - $(date +%s) ))
-  if [ "$remaining" -le 0 ]; then
-    return
-  fi
-
+  diagnostic_deadline=$(( $(date +%s) + 15 ))
   "$@" >&2 &
   diagnostic_pid=$!
   while kill -0 "$diagnostic_pid" 2>/dev/null; do
-    remaining=$(( deadline - $(date +%s) ))
-    if [ "$remaining" -le 0 ]; then
+    if [ "$(date +%s)" -ge "$diagnostic_deadline" ]; then
       kill "$diagnostic_pid" 2>/dev/null || true
       wait "$diagnostic_pid" 2>/dev/null || true
       return
     fi
-    sleep 1
+    sleep 0.1
   done
   wait "$diagnostic_pid" 2>/dev/null || true
 }
