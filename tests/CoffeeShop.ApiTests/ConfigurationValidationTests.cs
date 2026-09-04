@@ -48,6 +48,45 @@ public sealed class ConfigurationValidationTests
             StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(null, ModuleHostingMode.Embedded)]
+    [InlineData("Embedded", ModuleHostingMode.Embedded)]
+    [InlineData("external", ModuleHostingMode.External)]
+    public void Kitchen_hosting_mode_is_resolved_explicitly(
+        string? configuredValue,
+        ModuleHostingMode expected)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Modules:Kitchen:Hosting"] = configuredValue
+            })
+            .Build();
+
+        Assert.Equal(
+            expected,
+            configuration.ResolveModuleHosting("Kitchen"));
+    }
+
+    [Fact]
+    public void Undefined_kitchen_hosting_mode_is_rejected()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Modules:Kitchen:Hosting"] = "Shadow"
+            })
+            .Build();
+
+        var exception = Assert.Throws<OptionsValidationException>(() =>
+            configuration.ResolveModuleHosting("Kitchen"));
+
+        Assert.Contains(
+            "Modules:Kitchen:Hosting",
+            exception.Message,
+            StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Missing_postgresql_connection_is_rejected_with_the_option_name()
     {
@@ -193,6 +232,27 @@ public sealed class ConfigurationValidationTests
 
         Assert.Contains(
             "Dapr requires Modules:Barista:Hosting to be Embedded",
+            exception.ToString(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Dapr_with_external_kitchen_fails_startup()
+    {
+        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting("Authentication:Enabled", "false");
+            builder.UseSetting("Messaging:Kafka:Enabled", "true");
+            builder.UseSetting("Messaging:Adapter", "Dapr");
+            builder.UseSetting("Modules:Barista:Hosting", "Embedded");
+            builder.UseSetting("Modules:Kitchen:Hosting", "External");
+        });
+
+        var exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+
+        Assert.Contains(
+            "Dapr requires Modules:Kitchen:Hosting to be Embedded",
             exception.ToString(),
             StringComparison.Ordinal);
     }

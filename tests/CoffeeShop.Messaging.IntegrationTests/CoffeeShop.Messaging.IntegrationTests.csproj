@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\CoffeeShop.Barista.Worker\CoffeeShop.Barista.Worker.csproj" />
+    <ProjectReference Include="..\..\src\CoffeeShop.Kitchen.Worker\CoffeeShop.Kitchen.Worker.csproj" />
     <ProjectReference Include="..\..\src\CoffeeShop.IntegrationContracts\CoffeeShop.IntegrationContracts.csproj" />
     <ProjectReference Include="..\..\src\CoffeeShop.Messaging.Abstractions\CoffeeShop.Messaging.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\CoffeeShop.Messaging.Dapr\CoffeeShop.Messaging.Dapr.csproj" />

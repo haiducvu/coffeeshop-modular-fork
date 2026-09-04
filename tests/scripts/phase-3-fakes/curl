@@ -153,11 +153,17 @@ case "$url" in
     trace "GET jaeger services"
     if [ "${FAKE_PHASE3_NO_TELEMETRY:-false}" = true ]; then
       printf '%s' '{"data":[]}'
-    elif [ "${EXPECT_BARISTA_WORKER_TELEMETRY:-false}" = true ] \
-      && [ "${FAKE_PHASE3_NO_BARISTA_TELEMETRY:-false}" != true ]; then
-      printf '%s' '{"data":["coffeeshop-api","coffeeshop-barista-worker"]}'
     else
-      printf '%s' '{"data":["coffeeshop-api"]}'
+      services='"coffeeshop-api"'
+      if [ "${EXPECT_BARISTA_WORKER_TELEMETRY:-false}" = true ] \
+        && [ "${FAKE_PHASE3_NO_BARISTA_TELEMETRY:-false}" != true ]; then
+        services="${services},\"coffeeshop-barista-worker\""
+      fi
+      if [ "${EXPECT_KITCHEN_WORKER_TELEMETRY:-false}" = true ] \
+        && [ "${FAKE_PHASE3_NO_KITCHEN_TELEMETRY:-false}" != true ]; then
+        services="${services},\"coffeeshop-kitchen-worker\""
+      fi
+      printf '{"data":[%s]}' "$services"
     fi
     ;;
   */api/traces*)
@@ -165,8 +171,16 @@ case "$url" in
     if [ "${FAKE_PHASE3_NO_TELEMETRY:-false}" = true ]; then
       printf '%s' '{"data":[]}'
     elif [ "${EXPECT_BARISTA_WORKER_TELEMETRY:-false}" = true ] \
+      && [ "${FAKE_PHASE3_NO_BARISTA_TELEMETRY:-false}" != true ] \
+      && [ "${EXPECT_KITCHEN_WORKER_TELEMETRY:-false}" = true ] \
+      && [ "${FAKE_PHASE3_NO_KITCHEN_TELEMETRY:-false}" != true ]; then
+      printf '%s' '{"data":[{"processes":{"p1":{"serviceName":"coffeeshop-api"},"p2":{"serviceName":"coffeeshop-barista-worker"},"p3":{"serviceName":"coffeeshop-kitchen-worker"}},"spans":[{"operationName":"coffeeshop.order-placed publish","processID":"p1"},{"operationName":"coffeeshop.order-placed process","processID":"p2"},{"operationName":"coffeeshop.order-placed process","processID":"p3"}]}]}'
+    elif [ "${EXPECT_BARISTA_WORKER_TELEMETRY:-false}" = true ] \
       && [ "${FAKE_PHASE3_NO_BARISTA_TELEMETRY:-false}" != true ]; then
       printf '%s' '{"data":[{"processes":{"p1":{"serviceName":"coffeeshop-api"},"p2":{"serviceName":"coffeeshop-barista-worker"}},"spans":[{"operationName":"coffeeshop.order-placed publish","processID":"p1"},{"operationName":"coffeeshop.order-placed process","processID":"p2"}]}]}'
+    elif [ "${EXPECT_KITCHEN_WORKER_TELEMETRY:-false}" = true ] \
+      && [ "${FAKE_PHASE3_NO_KITCHEN_TELEMETRY:-false}" != true ]; then
+      printf '%s' '{"data":[{"processes":{"p1":{"serviceName":"coffeeshop-api"},"p2":{"serviceName":"coffeeshop-kitchen-worker"}},"spans":[{"operationName":"coffeeshop.order-placed publish","processID":"p1"},{"operationName":"coffeeshop.order-placed process","processID":"p2"}]}]}'
     else
       printf '%s' '{"data":[{"processes":{"p1":{"serviceName":"coffeeshop-api"}},"spans":[{"operationName":"coffeeshop.order-placed publish","processID":"p1"},{"operationName":"coffeeshop.order-placed process","processID":"p1"}]}]}'
     fi

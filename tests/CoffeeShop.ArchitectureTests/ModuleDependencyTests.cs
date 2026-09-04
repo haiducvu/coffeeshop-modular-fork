@@ -1,4 +1,5 @@
 extern alias BaristaWorker;
+extern alias KitchenWorker;
 
 using ArchUnitNET.Domain;
 using ArchUnitNET.Fluent;
@@ -18,6 +19,8 @@ using static ArchUnitNET.Fluent.ArchRuleDefinition;
 
 using BaristaWorkerServiceCollectionExtensions =
     BaristaWorker::CoffeeShop.Barista.Worker.BaristaWorkerServiceCollectionExtensions;
+using KitchenWorkerServiceCollectionExtensions =
+    KitchenWorker::CoffeeShop.Kitchen.Worker.KitchenWorkerServiceCollectionExtensions;
 
 namespace CoffeeShop.ArchitectureTests;
 
@@ -128,7 +131,17 @@ public sealed class ModuleDependencyTests
         ModuleDependencyRules.MustNotDependOn(
                 ArchitectureTestContext.BaristaWorkerTypes,
                 ArchitectureTestContext.BaristaWorkerForbiddenTypes,
-                "Barista Worker must not depend on the API, other business modules, or Dapr.")
+                "Barista Worker must not depend on the API, other business modules, other workers, or Dapr.")
+            .Check(ArchitectureTestContext.Architecture);
+    }
+
+    [Fact]
+    public void Kitchen_worker_must_remain_an_independent_composition_root()
+    {
+        ModuleDependencyRules.MustNotDependOn(
+                ArchitectureTestContext.KitchenWorkerTypes,
+                ArchitectureTestContext.KitchenWorkerForbiddenTypes,
+                "Kitchen Worker must not depend on the API, other business modules, other workers, or Dapr.")
             .Check(ArchitectureTestContext.Architecture);
     }
 }
@@ -144,6 +157,7 @@ internal static class ArchitectureTestContext
             typeof(DaprServiceCollectionExtensions).Assembly,
             typeof(KafkaServiceCollectionExtensions).Assembly,
             typeof(BaristaWorkerServiceCollectionExtensions).Assembly,
+            typeof(KitchenWorkerServiceCollectionExtensions).Assembly,
             typeof(BaristaModuleServiceCollectionExtensions).Assembly,
             typeof(ICounterModule).Assembly,
             typeof(KitchenModuleServiceCollectionExtensions).Assembly,
@@ -172,6 +186,10 @@ internal static class ArchitectureTestContext
         .ResideInAssembly(FullAssemblyName(
             typeof(BaristaWorkerServiceCollectionExtensions).Assembly));
 
+    internal static readonly IObjectProvider<IType> KitchenWorkerTypes = Types().That()
+        .ResideInAssembly(FullAssemblyName(
+            typeof(KitchenWorkerServiceCollectionExtensions).Assembly));
+
     internal static readonly IObjectProvider<IType> BaristaTypes = Types().That()
         .ResideInAssembly(FullAssemblyName(typeof(BaristaModuleServiceCollectionExtensions).Assembly));
 
@@ -188,6 +206,8 @@ internal static class ArchitectureTestContext
         .Are(ApiTypes)
         .Or()
         .Are(BaristaWorkerTypes)
+        .Or()
+        .Are(KitchenWorkerTypes)
         .Or()
         .Are(BaristaTypes)
         .Or()
@@ -252,6 +272,8 @@ internal static class ArchitectureTestContext
         .Or()
         .Are(BaristaWorkerTypes)
         .Or()
+        .Are(KitchenWorkerTypes)
+        .Or()
         .Are(BusinessModuleTypes)
         .Or()
         .Are(SharedKernelTypes);
@@ -262,9 +284,24 @@ internal static class ArchitectureTestContext
     internal static readonly IObjectProvider<IType> BaristaWorkerForbiddenTypes = Types().That()
         .Are(ApiTypes)
         .Or()
+        .Are(KitchenWorkerTypes)
+        .Or()
         .Are(CounterTypes)
         .Or()
         .Are(KitchenTypes)
+        .Or()
+        .Are(DaprAdapterTypes)
+        .Or()
+        .Are(DaprFrameworkTypes);
+
+    internal static readonly IObjectProvider<IType> KitchenWorkerForbiddenTypes = Types().That()
+        .Are(ApiTypes)
+        .Or()
+        .Are(BaristaWorkerTypes)
+        .Or()
+        .Are(BaristaTypes)
+        .Or()
+        .Are(CounterTypes)
         .Or()
         .Are(DaprAdapterTypes)
         .Or()

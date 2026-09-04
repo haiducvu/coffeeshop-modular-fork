@@ -197,4 +197,4 @@ docker compose --profile dapr down --volumes --remove-orphans
 - Architecture test biến boundary mong muốn thành fitness function chạy trong CI.
 - Kafka là distributed path hiện tại; Dapr chỉ được giữ ở topology mà bài học thực sự hỗ trợ.
 
-Lesson 32 chưa được triển khai. Kitchen vẫn nằm trong API cho đến khi có một commit bài học riêng và xanh.
+Ở checkpoint Lesson 31, Kitchen vẫn nằm trong API; Lesson 32 thực hiện extraction đó trong một commit riêng.

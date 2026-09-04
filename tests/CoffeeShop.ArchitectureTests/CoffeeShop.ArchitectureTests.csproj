@@ -10,6 +10,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\CoffeeShop.Barista.Worker\CoffeeShop.Barista.Worker.csproj"
                       Aliases="BaristaWorker" />
+    <ProjectReference Include="..\..\src\CoffeeShop.Kitchen.Worker\CoffeeShop.Kitchen.Worker.csproj"
+                      Aliases="KitchenWorker" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="TngTech.ArchUnitNET" />
     <PackageReference Include="TngTech.ArchUnitNET.xUnit" />

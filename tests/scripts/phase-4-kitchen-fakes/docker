@@ -1,0 +1,47 @@
+#!/bin/sh
+
+set -eu
+
+case "$*" in
+  "compose ps --status running --services")
+    printf '%s\n' api
+    if [ "${FAKE_PHASE4_BARISTA_MISSING:-false}" != true ]; then
+      printf '%s\n' barista-worker
+    fi
+    if [ "${FAKE_PHASE4_KITCHEN_MISSING:-false}" != true ]; then
+      printf '%s\n' kitchen-worker
+    fi
+    ;;
+  "compose exec -T postgres psql "*)
+    if [ "${FAKE_PHASE4_SCHEMAS_MISSING:-false}" = true ]; then
+      printf '%s\n' '|||||'
+    elif [ "${FAKE_PHASE4_MESSAGING_TABLES_MISSING:-false}" = true ]; then
+      case "$*" in
+        *inbox_messages*) printf '%s\n' 'barista.items|||kitchen.items||' ;;
+        *) printf '%s\n' 'barista.items|kitchen.items' ;;
+      esac
+    elif [ "${FAKE_PHASE4_FINAL_MIGRATIONS_MISSING:-false}" = true ]; then
+      case "$*" in
+        *RejectedAtUtc*)
+          printf '%s\n' 'barista.items|barista.inbox_messages|barista.outbox_messages|kitchen.items|kitchen.inbox_messages|kitchen.outbox_messages|f|f'
+          ;;
+        *)
+          printf '%s\n' 'barista.items|barista.inbox_messages|barista.outbox_messages|kitchen.items|kitchen.inbox_messages|kitchen.outbox_messages'
+          ;;
+      esac
+    else
+      case "$*" in
+        *RejectedAtUtc*)
+          printf '%s\n' 'barista.items|barista.inbox_messages|barista.outbox_messages|kitchen.items|kitchen.inbox_messages|kitchen.outbox_messages|t|t'
+          ;;
+        *inbox_messages*)
+          printf '%s\n' 'barista.items|barista.inbox_messages|barista.outbox_messages|kitchen.items|kitchen.inbox_messages|kitchen.outbox_messages'
+          ;;
+        *) printf '%s\n' 'barista.items|kitchen.items' ;;
+      esac
+    fi
+    ;;
+  *)
+    exit 1
+    ;;
+esac

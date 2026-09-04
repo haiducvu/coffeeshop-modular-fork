@@ -11,6 +11,7 @@ jaeger_url="${JAEGER_URL:-}"
 authentication_enabled="${AUTHENTICATION_ENABLED:-false}"
 messaging_adapter="${MESSAGING_ADAPTER:-Kafka}"
 expect_barista_worker_telemetry="${EXPECT_BARISTA_WORKER_TELEMETRY:-false}"
+expect_kitchen_worker_telemetry="${EXPECT_KITCHEN_WORKER_TELEMETRY:-false}"
 timeout_seconds="${SMOKE_TIMEOUT_SECONDS:-180}"
 deadline=$(( $(date +%s) + timeout_seconds ))
 timestamp_hex="$(printf '%08x' "$(date +%s)")"
@@ -36,7 +37,7 @@ fail() {
   echo "Phase 3 smoke test failed: $1" >&2
   run_diagnostic docker compose ps
   run_diagnostic docker compose logs --tail=150 \
-    api barista-worker kafka schema-registry dapr-sidecar postgres redis \
+    api barista-worker kitchen-worker kafka schema-registry dapr-sidecar postgres redis \
     otel-collector jaeger
   exit 1
 }
@@ -409,11 +410,29 @@ if [ -n "$otel_metrics_url" ]; then
       --connect-timeout "$request_timeout" \
       --max-time "$request_timeout" \
       "${jaeger_url}/api/services" 2>/dev/null || true)"
-    if [ "$expect_barista_worker_telemetry" = true ]; then
+    if [ "$expect_barista_worker_telemetry" = true ] \
+      && [ "$expect_kitchen_worker_telemetry" = true ]; then
       if printf '%s' "$services" | jq --exit-status '
           .data
           | index("coffeeshop-api") != null
             and index("coffeeshop-barista-worker") != null
+            and index("coffeeshop-kitchen-worker") != null
+        ' >/dev/null 2>&1; then
+        break
+      fi
+    elif [ "$expect_barista_worker_telemetry" = true ]; then
+      if printf '%s' "$services" | jq --exit-status '
+          .data
+          | index("coffeeshop-api") != null
+            and index("coffeeshop-barista-worker") != null
+        ' >/dev/null 2>&1; then
+        break
+      fi
+    elif [ "$expect_kitchen_worker_telemetry" = true ]; then
+      if printf '%s' "$services" | jq --exit-status '
+          .data
+          | index("coffeeshop-api") != null
+            and index("coffeeshop-kitchen-worker") != null
         ' >/dev/null 2>&1; then
         break
       fi
@@ -430,7 +449,26 @@ if [ -n "$otel_metrics_url" ]; then
       --max-time "$request_timeout" \
       "${jaeger_url}/api/traces?service=coffeeshop-api&limit=20&lookback=1h" \
       2>/dev/null || true)"
-    if [ "$expect_barista_worker_telemetry" = true ]; then
+    if [ "$expect_barista_worker_telemetry" = true ] \
+      && [ "$expect_kitchen_worker_telemetry" = true ]; then
+      if printf '%s' "$traces" | jq --exit-status '
+          any(.data[]?;
+            . as $trace
+            | any($trace.spans[]?;
+                .operationName == "coffeeshop.order-placed publish"
+                and $trace.processes[.processID].serviceName == "coffeeshop-api")
+              and any($trace.spans[]?;
+                .operationName == "coffeeshop.order-placed process"
+                and $trace.processes[.processID].serviceName
+                  == "coffeeshop-barista-worker")
+              and any($trace.spans[]?;
+                .operationName == "coffeeshop.order-placed process"
+                and $trace.processes[.processID].serviceName
+                  == "coffeeshop-kitchen-worker"))
+        ' >/dev/null 2>&1; then
+        break
+      fi
+    elif [ "$expect_barista_worker_telemetry" = true ]; then
       if printf '%s' "$traces" | jq --exit-status '
           any(.data[]?;
             . as $trace
@@ -441,6 +479,20 @@ if [ -n "$otel_metrics_url" ]; then
                 .operationName == "coffeeshop.order-placed process"
                 and $trace.processes[.processID].serviceName
                   == "coffeeshop-barista-worker"))
+        ' >/dev/null 2>&1; then
+        break
+      fi
+    elif [ "$expect_kitchen_worker_telemetry" = true ]; then
+      if printf '%s' "$traces" | jq --exit-status '
+          any(.data[]?;
+            . as $trace
+            | any($trace.spans[]?;
+                .operationName == "coffeeshop.order-placed publish"
+                and $trace.processes[.processID].serviceName == "coffeeshop-api")
+              and any($trace.spans[]?;
+                .operationName == "coffeeshop.order-placed process"
+                and $trace.processes[.processID].serviceName
+                  == "coffeeshop-kitchen-worker"))
         ' >/dev/null 2>&1; then
         break
       fi

@@ -81,11 +81,18 @@ if (authenticationEnabled)
 var healthChecks = builder.Services.AddHealthChecks();
 var messagingAdapter = ResolveMessagingAdapter(builder.Configuration["Messaging:Adapter"]);
 var baristaHosting = builder.Configuration.ResolveModuleHosting("Barista");
+var kitchenHosting = builder.Configuration.ResolveModuleHosting("Kitchen");
 if (messagingAdapter == MessagingAdapter.Dapr
     && baristaHosting == ModuleHostingMode.External)
 {
     throw new InvalidOperationException(
         "Dapr requires Modules:Barista:Hosting to be Embedded because the external Barista Worker is Kafka-only in Lesson 31.");
+}
+if (messagingAdapter == MessagingAdapter.Dapr
+    && kitchenHosting == ModuleHostingMode.External)
+{
+    throw new InvalidOperationException(
+        "Dapr requires Modules:Kitchen:Hosting to be Embedded because the external Kitchen Worker is Kafka-only in Lesson 32.");
 }
 var kafkaSection = builder.Configuration.GetSection(KafkaMessagingOptions.SectionName);
 var kafkaEnabled = bool.TryParse(kafkaSection["Enabled"], out var enabled)
@@ -120,7 +127,10 @@ if (kafkaEnabled)
         {
             builder.Services.AddKafkaConsumer<OrderPlacedV1>("barista");
         }
-        builder.Services.AddKafkaConsumer<OrderPlacedV1>("kitchen");
+        if (kitchenHosting == ModuleHostingMode.Embedded)
+        {
+            builder.Services.AddKafkaConsumer<OrderPlacedV1>("kitchen");
+        }
         builder.Services.AddKafkaConsumer<OrderItemPreparedV1>("counter");
     }
     else
@@ -186,7 +196,10 @@ else
     {
         builder.Services.AddBaristaModule(connectionString, configureBaristaOutbox);
     }
-    builder.Services.AddKitchenModule(connectionString, configureKitchenOutbox);
+    if (kitchenHosting == ModuleHostingMode.Embedded)
+    {
+        builder.Services.AddKitchenModule(connectionString, configureKitchenOutbox);
+    }
     builder.Services.AddSingleton(new PostgreSqlReadinessHealthCheck(connectionString));
     healthChecks.AddCheck<PostgreSqlReadinessHealthCheck>(
         "postgresql",
@@ -297,7 +310,10 @@ if (!app.Environment.IsEnvironment("Testing"))
     {
         await app.Services.MigrateBaristaModuleAsync();
     }
-    await app.Services.MigrateKitchenModuleAsync();
+    if (kitchenHosting == ModuleHostingMode.Embedded)
+    {
+        await app.Services.MigrateKitchenModuleAsync();
+    }
 }
 
 await app.RunAsync();
