@@ -1,0 +1,15 @@
+#!/bin/sh
+
+set -eu
+
+case "$*" in
+  "compose ps --status running --services")
+    printf '%s\n' api
+    if [ "${FAKE_PHASE4_BARISTA_MISSING:-false}" != true ]; then
+      printf '%s\n' barista-worker
+    fi
+    ;;
+  *)
+    exit 1
+    ;;
+esac

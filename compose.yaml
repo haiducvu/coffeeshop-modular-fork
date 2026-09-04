@@ -127,6 +127,7 @@ services:
       Messaging__KitchenOutbox__RetryDelay: ${KITCHEN_OUTBOX_RETRY_DELAY:-00:00:05}
       OpenTelemetry__OtlpEndpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_METRIC_EXPORT_INTERVAL: ${OTEL_METRIC_EXPORT_INTERVAL:-5000}
+      Modules__Barista__Hosting: ${BARISTA_HOSTING_MODE:-External}
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:
@@ -146,6 +147,29 @@ services:
       timeout: 3s
       retries: 20
       start_period: 10s
+
+  barista-worker:
+    build:
+      context: .
+      dockerfile: src/CoffeeShop.Barista.Worker/Dockerfile
+    environment:
+      ConnectionStrings__Barista: Host=postgres;Port=5432;Database=${POSTGRES_DB:-coffeeshop};Username=${POSTGRES_USER:-coffeeshop};Password=${POSTGRES_PASSWORD:-coffeeshop-local}
+      Messaging__Kafka__Enabled: "true"
+      Messaging__Kafka__BootstrapServers: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:19092}
+      Messaging__Kafka__SchemaRegistryUrl: ${SCHEMA_REGISTRY_URL:-http://schema-registry:8081}
+      Messaging__Kafka__ProducerFormat: ${KAFKA_PRODUCER_FORMAT:-Avro}
+      Messaging__Kafka__TopicPrefix: ${KAFKA_TOPIC_PREFIX:-coffeeshop}
+      Messaging__Kafka__ConsumerGroupPrefix: ${KAFKA_CONSUMER_GROUP_PREFIX:-coffeeshop}
+      OpenTelemetry__OtlpEndpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_METRIC_EXPORT_INTERVAL: ${OTEL_METRIC_EXPORT_INTERVAL:-5000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    restart: "on-failure:3"
 
   dapr-sidecar:
     profiles: ["dapr"]

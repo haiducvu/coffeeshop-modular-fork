@@ -153,6 +153,9 @@ case "$url" in
     trace "GET jaeger services"
     if [ "${FAKE_PHASE3_NO_TELEMETRY:-false}" = true ]; then
       printf '%s' '{"data":[]}'
+    elif [ "${EXPECT_BARISTA_WORKER_TELEMETRY:-false}" = true ] \
+      && [ "${FAKE_PHASE3_NO_BARISTA_TELEMETRY:-false}" != true ]; then
+      printf '%s' '{"data":["coffeeshop-api","coffeeshop-barista-worker"]}'
     else
       printf '%s' '{"data":["coffeeshop-api"]}'
     fi
@@ -161,8 +164,11 @@ case "$url" in
     trace "GET jaeger traces"
     if [ "${FAKE_PHASE3_NO_TELEMETRY:-false}" = true ]; then
       printf '%s' '{"data":[]}'
+    elif [ "${EXPECT_BARISTA_WORKER_TELEMETRY:-false}" = true ] \
+      && [ "${FAKE_PHASE3_NO_BARISTA_TELEMETRY:-false}" != true ]; then
+      printf '%s' '{"data":[{"processes":{"p1":{"serviceName":"coffeeshop-api"},"p2":{"serviceName":"coffeeshop-barista-worker"}},"spans":[{"operationName":"coffeeshop.order-placed publish","processID":"p1"},{"operationName":"coffeeshop.order-placed process","processID":"p2"}]}]}'
     else
-      printf '%s' '{"data":[{"spans":[{"operationName":"coffeeshop.order-placed publish"},{"operationName":"coffeeshop.order-placed process"}]}]}'
+      printf '%s' '{"data":[{"processes":{"p1":{"serviceName":"coffeeshop-api"}},"spans":[{"operationName":"coffeeshop.order-placed publish","processID":"p1"},{"operationName":"coffeeshop.order-placed process","processID":"p1"}]}]}'
     fi
     ;;
   *)

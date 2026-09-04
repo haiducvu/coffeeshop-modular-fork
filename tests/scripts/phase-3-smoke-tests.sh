@@ -23,8 +23,10 @@ run_smoke() {
     FAKE_PHASE3_NO_DLT="${FAKE_PHASE3_NO_DLT:-false}" \
     FAKE_PHASE3_NO_SCHEMAS="${FAKE_PHASE3_NO_SCHEMAS:-false}" \
     FAKE_PHASE3_NO_TELEMETRY="${FAKE_PHASE3_NO_TELEMETRY:-false}" \
+    FAKE_PHASE3_NO_BARISTA_TELEMETRY="${FAKE_PHASE3_NO_BARISTA_TELEMETRY:-false}" \
     FAKE_PHASE3_EXISTING_EFFECTS="${FAKE_PHASE3_EXISTING_EFFECTS:-false}" \
     FAKE_PHASE3_EXISTING_IDENTITIES="${FAKE_PHASE3_EXISTING_IDENTITIES:-false}" \
+    EXPECT_BARISTA_WORKER_TELEMETRY="${EXPECT_BARISTA_WORKER_TELEMETRY:-false}" \
     OTEL_METRICS_URL="${OTEL_METRICS_URL:-}" \
     JAEGER_URL="${JAEGER_URL:-}" \
     "$smoke_script" 2>&1)"; then
@@ -112,6 +114,35 @@ else
   echo "PASS: observability smoke proved exported metrics and traces."
 fi
 unset OTEL_METRICS_URL JAEGER_URL
+
+EXPECT_BARISTA_WORKER_TELEMETRY=true \
+OTEL_METRICS_URL=http://collector.test/metrics \
+JAEGER_URL=http://jaeger.test \
+run_smoke
+if [ "$status" -ne 0 ]; then
+  echo "FAIL: exported Barista Worker telemetry was not accepted." >&2
+  failures=$((failures + 1))
+else
+  echo "PASS: exported Barista Worker telemetry was accepted."
+fi
+unset EXPECT_BARISTA_WORKER_TELEMETRY OTEL_METRICS_URL JAEGER_URL
+
+started_at="$(date +%s)"
+SMOKE_TIMEOUT_SECONDS=1 \
+EXPECT_BARISTA_WORKER_TELEMETRY=true \
+FAKE_PHASE3_NO_BARISTA_TELEMETRY=true \
+OTEL_METRICS_URL=http://collector.test/metrics \
+JAEGER_URL=http://jaeger.test \
+run_smoke
+elapsed_seconds=$(( $(date +%s) - started_at ))
+if [ "$status" -eq 0 ] || [ "$elapsed_seconds" -gt 2 ]; then
+  echo "FAIL: missing Barista Worker telemetry was accepted or unbounded." >&2
+  failures=$((failures + 1))
+else
+  echo "PASS: missing Barista Worker telemetry was rejected within the deadline."
+fi
+unset SMOKE_TIMEOUT_SECONDS EXPECT_BARISTA_WORKER_TELEMETRY \
+  FAKE_PHASE3_NO_BARISTA_TELEMETRY OTEL_METRICS_URL JAEGER_URL
 
 started_at="$(date +%s)"
 SMOKE_TIMEOUT_SECONDS=1 \

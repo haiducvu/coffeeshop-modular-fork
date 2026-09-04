@@ -38,7 +38,7 @@ jobs:
       - name: Run Redis-enabled Phase 1 smoke test
         run: |
           trap 'docker compose --profile demo --profile identity down --volumes --remove-orphans' EXIT
-          docker compose up -d postgres redis kafka schema-registry api signalr-client
+          docker compose up -d postgres redis kafka schema-registry api barista-worker signalr-client
           ./scripts/phase-1-smoke.sh
           ./scripts/phase-2-smoke.sh
       - name: Run identity smoke test
@@ -46,12 +46,12 @@ jobs:
           trap 'docker compose --profile identity down --volumes --remove-orphans' EXIT
           jq --version
           ./tests/scripts/phase-2-identity-smoke-tests.sh
-          AUTHENTICATION_ENABLED=true docker compose --profile identity up -d postgres redis kafka schema-registry keycloak api
+          AUTHENTICATION_ENABLED=true docker compose --profile identity up -d postgres redis kafka schema-registry keycloak api barista-worker
           ./scripts/phase-2-identity-smoke.sh
       - name: Run one DataGen order
         run: |
           trap 'docker compose --profile demo down --volumes --remove-orphans' EXIT
-          docker compose up -d postgres redis kafka schema-registry api
+          docker compose up -d postgres redis kafka schema-registry api barista-worker
           DATAGEN_ORDER_COUNT=1 docker compose --profile demo run --rm datagen
       - name: Run OpenTelemetry Phase 3 smoke test
         env:
@@ -60,11 +60,13 @@ jobs:
         run: |
           trap 'docker compose --profile observability down --volumes --remove-orphans' EXIT
           ./tests/scripts/phase-3-smoke-tests.sh
-          docker compose --profile observability up -d postgres redis kafka schema-registry jaeger otel-collector api
-          OTEL_METRICS_URL=http://localhost:9464/metrics JAEGER_URL=http://localhost:16686 ./scripts/phase-3-smoke.sh
+          ./tests/scripts/phase-4-barista-smoke-tests.sh
+          docker compose --profile observability up -d postgres redis kafka schema-registry jaeger otel-collector api barista-worker
+          OTEL_METRICS_URL=http://localhost:9464/metrics JAEGER_URL=http://localhost:16686 ./scripts/phase-4-barista-smoke.sh
       - name: Run Dapr Phase 3 smoke test
         env:
           MESSAGING_ADAPTER: Dapr
+          BARISTA_HOSTING_MODE: Embedded
         run: |
           trap 'docker compose --profile dapr down --volumes --remove-orphans' EXIT
           docker compose --profile dapr up -d postgres redis kafka api dapr-sidecar

@@ -35,6 +35,30 @@ public static class ConfigurationExtensions
         return configuredOptions;
     }
 
+    public static ModuleHostingMode ResolveModuleHosting(
+        this IConfiguration configuration,
+        string moduleName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(moduleName);
+        var key = $"Modules:{moduleName}:Hosting";
+        var value = configuration[key];
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return ModuleHostingMode.Embedded;
+        }
+
+        if (!Enum.TryParse<ModuleHostingMode>(value, ignoreCase: true, out var mode)
+            || !Enum.IsDefined(mode))
+        {
+            throw new OptionsValidationException(
+                key,
+                typeof(ModuleHostingMode),
+                [$"{key} must be Embedded or External."]);
+        }
+
+        return mode;
+    }
+
     private static IEnumerable<string> Validate(
         CoffeeShopHostOptions options,
         bool requireDatabase)

@@ -80,6 +80,13 @@ if (authenticationEnabled)
 }
 var healthChecks = builder.Services.AddHealthChecks();
 var messagingAdapter = ResolveMessagingAdapter(builder.Configuration["Messaging:Adapter"]);
+var baristaHosting = builder.Configuration.ResolveModuleHosting("Barista");
+if (messagingAdapter == MessagingAdapter.Dapr
+    && baristaHosting == ModuleHostingMode.External)
+{
+    throw new InvalidOperationException(
+        "Dapr requires Modules:Barista:Hosting to be Embedded because the external Barista Worker is Kafka-only in Lesson 31.");
+}
 var kafkaSection = builder.Configuration.GetSection(KafkaMessagingOptions.SectionName);
 var kafkaEnabled = bool.TryParse(kafkaSection["Enabled"], out var enabled)
     && enabled;
@@ -109,7 +116,10 @@ if (kafkaEnabled)
                 tags: ["ready"],
                 timeout: TimeSpan.FromSeconds(3));
         }
-        builder.Services.AddKafkaConsumer<OrderPlacedV1>("barista");
+        if (baristaHosting == ModuleHostingMode.Embedded)
+        {
+            builder.Services.AddKafkaConsumer<OrderPlacedV1>("barista");
+        }
         builder.Services.AddKafkaConsumer<OrderPlacedV1>("kitchen");
         builder.Services.AddKafkaConsumer<OrderItemPreparedV1>("counter");
     }
@@ -172,7 +182,10 @@ else
         hostOptions.RedisConnectionString,
         hostOptions.ParsedFulfillmentCacheTimeToLive,
         configureCounterOutbox);
-    builder.Services.AddBaristaModule(connectionString, configureBaristaOutbox);
+    if (baristaHosting == ModuleHostingMode.Embedded)
+    {
+        builder.Services.AddBaristaModule(connectionString, configureBaristaOutbox);
+    }
     builder.Services.AddKitchenModule(connectionString, configureKitchenOutbox);
     builder.Services.AddSingleton(new PostgreSqlReadinessHealthCheck(connectionString));
     healthChecks.AddCheck<PostgreSqlReadinessHealthCheck>(
@@ -280,7 +293,10 @@ if (authenticationEnabled)
 if (!app.Environment.IsEnvironment("Testing"))
 {
     await app.Services.MigrateCounterModuleAsync();
-    await app.Services.MigrateBaristaModuleAsync();
+    if (baristaHosting == ModuleHostingMode.Embedded)
+    {
+        await app.Services.MigrateBaristaModuleAsync();
+    }
     await app.Services.MigrateKitchenModuleAsync();
 }
 

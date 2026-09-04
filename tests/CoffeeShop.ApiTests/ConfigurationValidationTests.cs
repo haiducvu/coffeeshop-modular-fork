@@ -9,6 +9,45 @@ namespace CoffeeShop.ApiTests;
 
 public sealed class ConfigurationValidationTests
 {
+    [Theory]
+    [InlineData(null, ModuleHostingMode.Embedded)]
+    [InlineData("Embedded", ModuleHostingMode.Embedded)]
+    [InlineData("external", ModuleHostingMode.External)]
+    public void Barista_hosting_mode_is_resolved_explicitly(
+        string? configuredValue,
+        ModuleHostingMode expected)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Modules:Barista:Hosting"] = configuredValue
+            })
+            .Build();
+
+        Assert.Equal(
+            expected,
+            configuration.ResolveModuleHosting("Barista"));
+    }
+
+    [Fact]
+    public void Undefined_barista_hosting_mode_is_rejected()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Modules:Barista:Hosting"] = "Shadow"
+            })
+            .Build();
+
+        var exception = Assert.Throws<OptionsValidationException>(() =>
+            configuration.ResolveModuleHosting("Barista"));
+
+        Assert.Contains(
+            "Modules:Barista:Hosting",
+            exception.Message,
+            StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Missing_postgresql_connection_is_rejected_with_the_option_name()
     {
@@ -134,6 +173,26 @@ public sealed class ConfigurationValidationTests
 
         Assert.Contains(
             "Kafka producer format must be Json or Avro",
+            exception.ToString(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Dapr_with_external_barista_fails_startup()
+    {
+        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Testing");
+            builder.UseSetting("Authentication:Enabled", "false");
+            builder.UseSetting("Messaging:Kafka:Enabled", "true");
+            builder.UseSetting("Messaging:Adapter", "Dapr");
+            builder.UseSetting("Modules:Barista:Hosting", "External");
+        });
+
+        var exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+
+        Assert.Contains(
+            "Dapr requires Modules:Barista:Hosting to be Embedded",
             exception.ToString(),
             StringComparison.Ordinal);
     }

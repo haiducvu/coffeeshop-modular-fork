@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/CoffeeShop.Api/CoffeeShop.Api.csproj" />
+    <Project Path="src/CoffeeShop.Barista.Worker/CoffeeShop.Barista.Worker.csproj" />
     <Project Path="src/CoffeeShop.Contracts/CoffeeShop.Contracts.csproj" />
     <Project Path="src/CoffeeShop.DataGen/CoffeeShop.DataGen.csproj" />
     <Project Path="src/CoffeeShop.IntegrationContracts/CoffeeShop.IntegrationContracts.csproj" />
@@ -22,5 +23,6 @@
     <Project Path="tests/CoffeeShop.Messaging.IntegrationTests/CoffeeShop.Messaging.IntegrationTests.csproj" />
     <Project Path="tests/CoffeeShop.MessagingTests/CoffeeShop.MessagingTests.csproj" />
     <Project Path="tests/CoffeeShop.UnitTests/CoffeeShop.UnitTests.csproj" />
+    <Project Path="tests/CoffeeShop.WorkerTests/CoffeeShop.WorkerTests.csproj" />
   </Folder>
 </Solution>

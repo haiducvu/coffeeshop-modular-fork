@@ -15,7 +15,7 @@ dotnet test CoffeeShop.slnx --no-build
 ## Chạy toàn bộ Phase 1
 
 ```bash
-docker compose up -d --build postgres redis api signalr-client
+docker compose up -d --build postgres redis kafka schema-registry api barista-worker signalr-client
 ./scripts/phase-1-smoke.sh
 ./scripts/phase-2-smoke.sh
 ```
@@ -31,7 +31,8 @@ mount realm import read-only và chỉ publish Keycloak trên loopback. Identity
 Docker Compose, `curl` và `jq` trên host:
 
 ```bash
-AUTHENTICATION_ENABLED=true docker compose --profile identity up -d --build postgres redis keycloak api
+AUTHENTICATION_ENABLED=true docker compose --profile identity up -d --build \
+  postgres redis kafka schema-registry keycloak api barista-worker
 ./scripts/phase-2-identity-smoke.sh
 ```
 
@@ -85,8 +86,8 @@ Compose; HTTP, SignalR và Redis behavior được giữ nguyên nhưng fulfillm
 
 ```bash
 docker compose down --volumes --remove-orphans
-docker compose up -d --build postgres redis kafka schema-registry api signalr-client
-./scripts/phase-3-smoke.sh
+docker compose up -d --build postgres redis kafka schema-registry api barista-worker signalr-client
+./scripts/phase-4-barista-smoke.sh
 ```
 
 Xem [tài liệu Lesson 25](docs/lessons/25-idempotent-inbox.md).
@@ -125,13 +126,31 @@ Chạy fresh Dapr workflow (override `DAPR_APP_API_TOKEN` bằng secret thật k
 
 ```bash
 docker compose --profile dapr down --volumes --remove-orphans
-MESSAGING_ADAPTER=Dapr docker compose --profile dapr up -d --build \
+BARISTA_HOSTING_MODE=Embedded MESSAGING_ADAPTER=Dapr \
+docker compose --profile dapr up -d --build \
   postgres redis kafka api dapr-sidecar
-MESSAGING_ADAPTER=Dapr ./scripts/phase-3-smoke.sh
+BARISTA_HOSTING_MODE=Embedded MESSAGING_ADAPTER=Dapr ./scripts/phase-3-smoke.sh
 ```
 
 Xem [tài liệu Lesson 30](docs/lessons/30-dapr-pubsub-adapter.md) để so sánh app-owned Kafka retry/DLT với
 runtime-owned Dapr delivery semantics và hiểu trade-off của sidecar.
+
+Lesson 31 mở Phase 4 bằng vertical slice đầu tiên được tách khỏi API: Barista chạy trong một .NET 10
+Generic Host riêng, tự migrate schema, consume `OrderPlacedV1`, ghi Inbox/business effect/Outbox và publish
+`OrderItemPreparedV1`. API chọn ownership tường minh qua `Modules:Barista:Hosting`; Compose Kafka mặc định
+`External`, còn Dapr regression phải đặt `Embedded` vì chưa có sidecar riêng cho Worker. Cả hai process vẫn
+dùng cùng PostgreSQL vật lý trong bài này; Lesson 33 mới cô lập database/credential. Chạy fresh proof:
+
+```bash
+docker compose down --volumes --remove-orphans
+docker compose up -d --build postgres redis kafka schema-registry api barista-worker signalr-client
+./scripts/phase-1-smoke.sh
+./scripts/phase-2-smoke.sh
+./scripts/phase-4-barista-smoke.sh
+```
+
+Xem [tài liệu Lesson 31](docs/lessons/31-extract-barista-worker.md). Lesson 32 chưa bắt đầu; Kitchen vẫn
+được host trong API.
 
 Dọn containers và database volume local:
 
@@ -190,6 +209,7 @@ Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên data
 - [Lesson 28 — Avro và Schema Registry governance](docs/lessons/28-avro-schema-evolution.md)
 - [Lesson 29 — OpenTelemetry cho distributed workflow](docs/lessons/29-opentelemetry.md)
 - [Lesson 30 — Dapr pub/sub adapter opt-in](docs/lessons/30-dapr-pubsub-adapter.md)
+- [Lesson 31 — Tách Barista thành Worker độc lập](docs/lessons/31-extract-barista-worker.md)
 
 ## Nhánh Git
 
