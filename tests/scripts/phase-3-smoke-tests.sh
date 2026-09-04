@@ -23,6 +23,8 @@ run_smoke() {
     FAKE_PHASE3_NO_DLT="${FAKE_PHASE3_NO_DLT:-false}" \
     FAKE_PHASE3_NO_SCHEMAS="${FAKE_PHASE3_NO_SCHEMAS:-false}" \
     FAKE_PHASE3_NO_TELEMETRY="${FAKE_PHASE3_NO_TELEMETRY:-false}" \
+    FAKE_PHASE3_EXISTING_EFFECTS="${FAKE_PHASE3_EXISTING_EFFECTS:-false}" \
+    FAKE_PHASE3_EXISTING_IDENTITIES="${FAKE_PHASE3_EXISTING_IDENTITIES:-false}" \
     OTEL_METRICS_URL="${OTEL_METRICS_URL:-}" \
     JAEGER_URL="${JAEGER_URL:-}" \
     "$smoke_script" 2>&1)"; then
@@ -31,7 +33,7 @@ run_smoke() {
     status=$?
   fi
   trace="$(cat "$trace_file")"
-  rm -f "$trace_file" "$state_file" "$state_file.dlt"
+  rm -f "$trace_file" "$state_file" "$state_file.dlt" "$state_file.effects"
 }
 
 run_smoke
@@ -61,6 +63,24 @@ else
   echo "PASS: authenticated Phase 3 workflow used a bearer token."
 fi
 unset AUTHENTICATION_ENABLED
+
+FAKE_PHASE3_EXISTING_EFFECTS=true run_smoke
+if [ "$status" -ne 0 ]; then
+  echo "FAIL: pre-existing workflow effects made the Phase 3 smoke fail." >&2
+  failures=$((failures + 1))
+else
+  echo "PASS: Phase 3 smoke isolated the workflow effects it created."
+fi
+unset FAKE_PHASE3_EXISTING_EFFECTS
+
+FAKE_PHASE3_EXISTING_IDENTITIES=true run_smoke
+if [ "$status" -ne 0 ]; then
+  echo "FAIL: pre-existing workflow identities made the Phase 3 smoke fail." >&2
+  failures=$((failures + 1))
+else
+  echo "PASS: Phase 3 smoke selected the identity of the workflow it created."
+fi
+unset FAKE_PHASE3_EXISTING_IDENTITIES
 
 MESSAGING_ADAPTER=Dapr run_smoke
 expected_dapr_trace='GET readiness

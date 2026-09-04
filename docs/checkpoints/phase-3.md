@@ -68,6 +68,10 @@ docker compose up -d --build postgres redis kafka schema-registry api signalr-cl
 ./scripts/phase-3-smoke.sh
 ```
 
+Phase 3 smoke chụp persistence counters trước khi tạo order rồi kiểm tra phần tăng do chính workflow đó,
+đồng thời chỉ đọc trace identity theo server correlation ID vừa nhận. Vì vậy chuỗi trên vẫn deterministic
+khi Phase 1 và Phase 2 đã để lại dữ liệu hợp lệ trong cùng volume.
+
 Dapr fresh proof:
 
 ```bash

@@ -66,6 +66,50 @@ contains_text() {
   esac
 }
 
+read_effect_counts() {
+  docker compose exec -T postgres psql \
+    -U "${POSTGRES_USER:-coffeeshop}" \
+    -d "${POSTGRES_DB:-coffeeshop}" \
+    -At -F '|' \
+    -c '
+      SELECT
+        (SELECT COUNT(*) FROM barista.items),
+        (SELECT COUNT(*) FROM kitchen.items),
+        (SELECT COUNT(*) FROM barista.inbox_messages),
+        (SELECT COUNT(*) FROM kitchen.inbox_messages),
+        (SELECT COUNT(*) FROM counter.inbox_messages),
+        (SELECT
+          (SELECT COUNT(*) FROM counter.outbox_messages
+           WHERE "PublishedAtUtc" IS NULL AND "RejectedAtUtc" IS NULL)
+          + (SELECT COUNT(*) FROM barista.outbox_messages
+             WHERE "PublishedAtUtc" IS NULL AND "RejectedAtUtc" IS NULL)
+          + (SELECT COUNT(*) FROM kitchen.outbox_messages
+             WHERE "PublishedAtUtc" IS NULL AND "RejectedAtUtc" IS NULL)),
+        (SELECT
+          (SELECT COUNT(*) FROM counter.outbox_messages WHERE "RejectedAtUtc" IS NOT NULL)
+          + (SELECT COUNT(*) FROM barista.outbox_messages WHERE "RejectedAtUtc" IS NOT NULL)
+          + (SELECT COUNT(*) FROM kitchen.outbox_messages WHERE "RejectedAtUtc" IS NOT NULL));
+    ' | tr -d '\r'
+}
+
+calculate_effect_delta() {
+  awk -v before="$1" -v after="$2" 'BEGIN {
+    before_count = split(before, before_fields, "[|]")
+    after_count = split(after, after_fields, "[|]")
+    if (before_count != 7 || after_count != 7) {
+      exit 1
+    }
+    for (field_index = 1; field_index <= 7; field_index++) {
+      if (before_fields[field_index] !~ /^[0-9]+$/ || after_fields[field_index] !~ /^[0-9]+$/) {
+        exit 1
+      }
+      delta[field_index] = after_fields[field_index] - before_fields[field_index]
+    }
+    printf "%d|%d|%d|%d|%d|%d|%d\n",
+      delta[1], delta[2], delta[3], delta[4], delta[5], delta[6], delta[7]
+  }'
+}
+
 if ! command -v jq >/dev/null 2>&1; then
   fail "jq is required to validate JSON responses."
 fi
@@ -129,6 +173,9 @@ if [ "$messaging_adapter" = Dapr ]; then
     fail "Dapr did not load the Kafka pub/sub component and both Version 1 subscriptions."
   fi
 fi
+
+effect_counts_before="$(read_effect_counts)" \
+  || fail "Initial messaging persistence state could not be queried."
 
 if [ "$authentication_enabled" = true ]; then
   echo "Authenticating a customer and placing a protected mixed order ..."
@@ -261,41 +308,19 @@ if ! docker compose exec -T redis redis-cli --raw EXISTS fulfilled-orders:v1 \
   fail "The fulfilled read model was not cached in Redis."
 fi
 
-effect_counts="$(docker compose exec -T postgres psql \
-  -U "${POSTGRES_USER:-coffeeshop}" \
-  -d "${POSTGRES_DB:-coffeeshop}" \
-  -At -F '|' \
-  -c '
-    SELECT
-      (SELECT COUNT(*) FROM barista.items),
-      (SELECT COUNT(*) FROM kitchen.items),
-      (SELECT COUNT(*) FROM barista.inbox_messages),
-      (SELECT COUNT(*) FROM kitchen.inbox_messages),
-      (SELECT COUNT(*) FROM counter.inbox_messages),
-      (SELECT
-        (SELECT COUNT(*) FROM counter.outbox_messages
-         WHERE "PublishedAtUtc" IS NULL AND "RejectedAtUtc" IS NULL)
-        + (SELECT COUNT(*) FROM barista.outbox_messages
-           WHERE "PublishedAtUtc" IS NULL AND "RejectedAtUtc" IS NULL)
-        + (SELECT COUNT(*) FROM kitchen.outbox_messages
-           WHERE "PublishedAtUtc" IS NULL AND "RejectedAtUtc" IS NULL)),
-      (SELECT
-        (SELECT COUNT(*) FROM counter.outbox_messages WHERE "RejectedAtUtc" IS NOT NULL)
-        + (SELECT COUNT(*) FROM barista.outbox_messages WHERE "RejectedAtUtc" IS NOT NULL)
-        + (SELECT COUNT(*) FROM kitchen.outbox_messages WHERE "RejectedAtUtc" IS NOT NULL));
-  ' | tr -d '\r')" || fail "Messaging persistence state could not be queried."
-if [ "$effect_counts" != '1|1|1|1|2|0|0' ]; then
-  fail "Inbox, station, pending Outbox, or rejected Outbox counts were unexpected."
+effect_counts_after="$(read_effect_counts)" \
+  || fail "Final messaging persistence state could not be queried."
+effect_delta="$(calculate_effect_delta "$effect_counts_before" "$effect_counts_after")" \
+  || fail "Messaging persistence counts were malformed."
+if [ "$effect_delta" != '1|1|1|1|2|0|0' ]; then
+  fail "Inbox, station, pending Outbox, or rejected Outbox deltas were unexpected."
 fi
 
-identity_state="$(docker compose exec -T postgres psql \
-  -U "${POSTGRES_USER:-coffeeshop}" \
-  -d "${POSTGRES_DB:-coffeeshop}" \
-  -At -F '|' \
-  -c '
+identity_state="$(printf '%s\n' '
     WITH root AS (
       SELECT "MessageId", "CorrelationId", "CausationId", "TraceParent", "TraceState"
       FROM counter.outbox_messages
+      WHERE "CorrelationId" = :correlation_id
     ), children AS (
       SELECT "CorrelationId", "CausationId", "TraceParent", "TraceState"
       FROM barista.outbox_messages
@@ -315,7 +340,11 @@ identity_state="$(docker compose exec -T postgres psql \
                   = substring(root."TraceParent" from 4 for 32)
               AND children."TraceState" IS NOT DISTINCT FROM root."TraceState")
     FROM root;
-  ' | tr -d '\r')" || fail "Workflow identity state could not be queried."
+  ' | docker compose exec -T postgres psql \
+    -U "${POSTGRES_USER:-coffeeshop}" \
+    -d "${POSTGRES_DB:-coffeeshop}" \
+    --set="correlation_id='${correlation_id}'" \
+    -At -F '|')" || fail "Workflow identity state could not be queried."
 if [ "$identity_state" != "${correlation_id}|t|t|2" ]; then
   fail "Correlation, causation, or trace identity did not stay continuous."
 fi
