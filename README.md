@@ -175,6 +175,20 @@ tự chuyển dữ liệu sang layout mới. Xem [Lesson 33](docs/lessons/33-ser
 Kafka smoke đọc từng owner bằng credential của service và nối bằng chứng correlation ở phía test.
 Dapr embedded dùng override `compose.dapr.yaml`, có database dùng chung riêng cho đường tương thích.
 
+Lesson 34 kiểm chứng batch hữu hạn trên topology này, phát lại event gốc để kiểm Inbox idempotency,
+và dừng từng worker sau khi Counter commit rồi quan sát Kafka backlog/phục hồi. Chỉ chạy trên stack
+demo riêng, không có DataGen hay người dùng khác gửi order đồng thời:
+
+```bash
+./scripts/phase-4-smoke.sh
+./scripts/phase-4-fault-demo.sh barista-worker
+./scripts/phase-4-fault-demo.sh kitchen-worker
+```
+
+Xem [Lesson 34](docs/lessons/34-distributed-flow.md) và
+[failure-demo runbook](docs/runbooks/distributed-failure-demo.md) để biết prerequisites, timeout,
+recovery, retry/DLT proof và giới hạn của demo.
+
 Dọn containers và database volume local:
 
 ```bash
@@ -235,6 +249,7 @@ Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên data
 - [Lesson 31 — Tách Barista thành Worker độc lập](docs/lessons/31-extract-barista-worker.md)
 - [Lesson 32 — Tách Kitchen thành Worker độc lập](docs/lessons/32-extract-kitchen-worker.md)
 - [Lesson 33 — Thực thi data ownership của từng service](docs/lessons/33-service-data-ownership.md)
+- [Lesson 34 — Kiểm chứng distributed flow và phục hồi worker](docs/lessons/34-distributed-flow.md)
 
 ## Nhánh Git
 

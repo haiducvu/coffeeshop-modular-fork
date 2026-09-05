@@ -53,6 +53,14 @@ jobs:
           trap 'docker compose --profile demo down --volumes --remove-orphans' EXIT
           docker compose up -d postgres redis kafka schema-registry api barista-worker kitchen-worker
           DATAGEN_ORDER_COUNT=1 docker compose --profile demo run --rm datagen
+      - name: Run distributed batch and worker recovery proofs
+        run: |
+          trap 'docker compose down --volumes --remove-orphans' EXIT
+          ./tests/scripts/phase-4-smoke-tests.sh
+          docker compose up -d postgres redis kafka schema-registry api barista-worker kitchen-worker
+          ./scripts/phase-4-smoke.sh
+          ./scripts/phase-4-fault-demo.sh barista-worker
+          ./scripts/phase-4-fault-demo.sh kitchen-worker
       - name: Run OpenTelemetry Phase 3 smoke test
         env:
           OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317

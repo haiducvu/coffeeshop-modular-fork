@@ -262,6 +262,8 @@ services:
       start_period: 5s
 
   datagen:
+    # Finite exploratory generator. Lesson 34's host-side acceptance harness shares
+    # DATAGEN_ORDER_COUNT / DATAGEN_SEED but always submits one drink + one food.
     profiles: ["demo"]
     build:
       context: .

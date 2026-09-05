@@ -1,9 +1,8 @@
 using CoffeeShop.Api.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Options;
+using System.Diagnostics;
 
 namespace CoffeeShop.ApiTests;
 
@@ -142,119 +141,64 @@ public sealed class ConfigurationValidationTests
     }
 
     [Fact]
-    public void Enabled_identity_without_audience_fails_startup_with_the_option_name()
+    public Task Enabled_identity_without_audience_fails_startup_with_the_option_name()
     {
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-        {
-            builder.UseEnvironment("Testing");
-            builder.UseSetting("Authentication:Enabled", "true");
-            builder.UseSetting(
-                "Authentication:Authority",
-                "https://identity.test/realms/coffeeshop");
-            builder.UseSetting("Authentication:Audience", string.Empty);
-        });
-
-        var exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
-
-        Assert.Contains("Authentication:Audience", exception.ToString(), StringComparison.Ordinal);
+        return AssertStartupFailureAsync(
+            "Authentication:Audience",
+            "--Authentication:Enabled=true",
+            "--Authentication:Authority=https://identity.test/realms/coffeeshop",
+            "--Authentication:Audience=");
     }
 
     [Fact]
-    public void Enabled_kafka_without_bootstrap_servers_fails_startup()
+    public Task Enabled_kafka_without_bootstrap_servers_fails_startup()
     {
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-        {
-            builder.UseEnvironment("Testing");
-            builder.UseSetting("Authentication:Enabled", "false");
-            builder.UseSetting("Messaging:Kafka:Enabled", "true");
-            builder.UseSetting("Messaging:Kafka:BootstrapServers", string.Empty);
-        });
-
-        var exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
-
-        Assert.Contains("Kafka bootstrap servers are required", exception.ToString(), StringComparison.Ordinal);
+        return AssertStartupFailureAsync(
+            "Kafka bootstrap servers are required",
+            "--Messaging:Kafka:Enabled=true",
+            "--Messaging:Kafka:BootstrapServers=");
     }
 
     [Fact]
-    public void Avro_writer_without_absolute_schema_registry_url_fails_startup()
+    public Task Avro_writer_without_absolute_schema_registry_url_fails_startup()
     {
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-        {
-            builder.UseEnvironment("Testing");
-            builder.UseSetting("Authentication:Enabled", "false");
-            builder.UseSetting("Messaging:Kafka:Enabled", "true");
-            builder.UseSetting("Messaging:Kafka:BootstrapServers", "127.0.0.1:9092");
-            builder.UseSetting("Messaging:Kafka:ProducerFormat", "Avro");
-            builder.UseSetting("Messaging:Kafka:SchemaRegistryUrl", "schema-registry:8081");
-        });
-
-        var exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
-
-        Assert.Contains(
+        return AssertStartupFailureAsync(
             "Schema Registry URL must be an absolute HTTP or HTTPS URL",
-            exception.ToString(),
-            StringComparison.Ordinal);
+            "--Messaging:Kafka:Enabled=true",
+            "--Messaging:Kafka:BootstrapServers=127.0.0.1:9092",
+            "--Messaging:Kafka:ProducerFormat=Avro",
+            "--Messaging:Kafka:SchemaRegistryUrl=schema-registry:8081");
     }
 
     [Fact]
-    public void Undefined_numeric_kafka_producer_format_fails_startup()
+    public Task Undefined_numeric_kafka_producer_format_fails_startup()
     {
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-        {
-            builder.UseEnvironment("Testing");
-            builder.UseSetting("Authentication:Enabled", "false");
-            builder.UseSetting("Messaging:Kafka:Enabled", "true");
-            builder.UseSetting("Messaging:Kafka:BootstrapServers", "127.0.0.1:9092");
-            builder.UseSetting("Messaging:Kafka:ProducerFormat", "42");
-        });
-
-        var exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
-
-        Assert.Contains(
+        return AssertStartupFailureAsync(
             "Kafka producer format must be Json or Avro",
-            exception.ToString(),
-            StringComparison.Ordinal);
+            "--Messaging:Kafka:Enabled=true",
+            "--Messaging:Kafka:BootstrapServers=127.0.0.1:9092",
+            "--Messaging:Kafka:ProducerFormat=42");
     }
 
     [Fact]
-    public void Dapr_with_external_barista_fails_startup()
+    public Task Dapr_with_external_barista_fails_startup()
     {
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-        {
-            builder.UseEnvironment("Testing");
-            builder.UseSetting("Authentication:Enabled", "false");
-            builder.UseSetting("Messaging:Kafka:Enabled", "true");
-            builder.UseSetting("Messaging:Adapter", "Dapr");
-            builder.UseSetting("Modules:Barista:Hosting", "External");
-        });
-
-        var exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
-
-        Assert.Contains(
+        return AssertStartupFailureAsync(
             "Dapr requires Modules:Barista:Hosting to be Embedded",
-            exception.ToString(),
-            StringComparison.Ordinal);
+            "--Messaging:Kafka:Enabled=true",
+            "--Messaging:Adapter=Dapr",
+            "--Modules:Barista:Hosting=External");
     }
 
     [Fact]
-    public void Dapr_with_external_kitchen_fails_startup()
+    public Task Dapr_with_external_kitchen_fails_startup()
     {
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-        {
-            builder.UseEnvironment("Testing");
-            builder.UseSetting("Authentication:Enabled", "false");
-            builder.UseSetting("Messaging:Kafka:Enabled", "true");
-            builder.UseSetting("Messaging:Adapter", "Dapr");
-            builder.UseSetting("Modules:Barista:Hosting", "Embedded");
-            builder.UseSetting("Modules:Kitchen:Hosting", "External");
-        });
-
-        var exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
-
-        Assert.Contains(
+        return AssertStartupFailureAsync(
             "Dapr requires Modules:Kitchen:Hosting to be Embedded",
-            exception.ToString(),
-            StringComparison.Ordinal);
+            "--Messaging:Kafka:Enabled=true",
+            "--Messaging:Adapter=Dapr",
+            "--Modules:Barista:Hosting=Embedded",
+            "--Modules:Kitchen:Hosting=External");
     }
 
     private static OptionsValidationException ResolveOptions(
@@ -266,5 +210,50 @@ public sealed class ConfigurationValidationTests
         var services = new ServiceCollection();
         return Assert.Throws<OptionsValidationException>(() =>
             services.AddCoffeeShopHostOptions(configuration, requireDatabase: true));
+    }
+
+    private static async Task AssertStartupFailureAsync(string expectedError, params string[] settings)
+    {
+        // A failed RunAsync disposes its host. WebApplicationFactory's deferred
+        // StartAsync can then observe a disposed IServiceProvider instead of the
+        // original startup failure. Probe the real entry point in its own process.
+        var startInfo = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet")
+        {
+            WorkingDirectory = AppContext.BaseDirectory,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        startInfo.ArgumentList.Add(typeof(Program).Assembly.Location);
+        startInfo.ArgumentList.Add("--environment=Testing");
+        startInfo.ArgumentList.Add("--Authentication:Enabled=false");
+        foreach (var setting in settings)
+        {
+            startInfo.ArgumentList.Add(setting);
+        }
+
+        using var process = new Process { StartInfo = startInfo };
+        Assert.True(process.Start());
+        var output = process.StandardOutput.ReadToEndAsync();
+        var error = process.StandardError.ReadToEndAsync();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        try
+        {
+            await process.WaitForExitAsync(deadline.Token);
+            await Task.WhenAll(output, error).WaitAsync(deadline.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+            using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await process.WaitForExitAsync(cleanup.Token);
+            throw new TimeoutException("Invalid API configuration did not terminate within the startup deadline.");
+        }
+
+        Assert.NotEqual(0, process.ExitCode);
+        Assert.Contains(expectedError, await error, StringComparison.Ordinal);
     }
 }
