@@ -67,6 +67,7 @@ jobs:
           OTEL_METRICS_URL=http://localhost:9464/metrics JAEGER_URL=http://localhost:16686 ./scripts/phase-4-kitchen-smoke.sh
       - name: Run Dapr Phase 3 smoke test
         env:
+          COMPOSE_FILE: compose.yaml:compose.dapr.yaml
           MESSAGING_ADAPTER: Dapr
           BARISTA_HOSTING_MODE: Embedded
           KITCHEN_HOSTING_MODE: Embedded

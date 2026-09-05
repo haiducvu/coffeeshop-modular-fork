@@ -126,8 +126,7 @@ Chạy fresh Dapr workflow (override `DAPR_APP_API_TOKEN` bằng secret thật k
 
 ```bash
 docker compose --profile dapr down --volumes --remove-orphans
-BARISTA_HOSTING_MODE=Embedded KITCHEN_HOSTING_MODE=Embedded MESSAGING_ADAPTER=Dapr \
-docker compose --profile dapr up -d --build \
+docker compose -f compose.yaml -f compose.dapr.yaml --profile dapr up -d --build \
   postgres redis kafka api dapr-sidecar
 BARISTA_HOSTING_MODE=Embedded KITCHEN_HOSTING_MODE=Embedded \
   MESSAGING_ADAPTER=Dapr ./scripts/phase-3-smoke.sh
@@ -165,8 +164,16 @@ docker compose up -d --build postgres redis kafka schema-registry \
 ./scripts/phase-4-kitchen-smoke.sh
 ```
 
-Xem [tài liệu Lesson 32](docs/lessons/32-extract-kitchen-worker.md). Database vật lý vẫn dùng chung có chủ ý;
-Lesson 33 mới thực thi database-per-service và credential isolation.
+Xem [tài liệu Lesson 32](docs/lessons/32-extract-kitchen-worker.md). Tại checkpoint Lesson 32, database vật lý
+vẫn dùng chung có chủ ý.
+
+Lesson 33 thực thi database-per-service: API, Barista và Kitchen lần lượt dùng `coffeeshop_counter`,
+`coffeeshop_barista`, `coffeeshop_kitchen` với role riêng, không có quyền CONNECT chéo. Ba logical databases
+vẫn nằm trên một PostgreSQL server local. Bootstrap chỉ chạy tự động khi volume mới; volume Lesson 32 không
+tự chuyển dữ liệu sang layout mới. Xem [Lesson 33](docs/lessons/33-service-data-ownership.md) và
+[data ownership](docs/architecture/service-data-ownership.md) để chạy fresh demo hoặc giữ dữ liệu cũ.
+Kafka smoke đọc từng owner bằng credential của service và nối bằng chứng correlation ở phía test.
+Dapr embedded dùng override `compose.dapr.yaml`, có database dùng chung riêng cho đường tương thích.
 
 Dọn containers và database volume local:
 
@@ -227,6 +234,7 @@ Các route `/v1`, SignalR client và DataGen vẫn giữ behavior cũ trên data
 - [Lesson 30 — Dapr pub/sub adapter opt-in](docs/lessons/30-dapr-pubsub-adapter.md)
 - [Lesson 31 — Tách Barista thành Worker độc lập](docs/lessons/31-extract-barista-worker.md)
 - [Lesson 32 — Tách Kitchen thành Worker độc lập](docs/lessons/32-extract-kitchen-worker.md)
+- [Lesson 33 — Thực thi data ownership của từng service](docs/lessons/33-service-data-ownership.md)
 
 ## Nhánh Git
 

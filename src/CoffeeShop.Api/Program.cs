@@ -19,12 +19,9 @@ using CoffeeShop.Contracts.Orders;
 using CoffeeShop.IntegrationContracts.Orders;
 using CoffeeShop.Messaging.Abstractions;
 using CoffeeShop.Messaging.Dapr;
-using CoffeeShop.Modules.Barista;
-using CoffeeShop.Modules.Barista.Infrastructure.Outbox;
+using CoffeeShop.Hosting.Embedded;
 using CoffeeShop.Modules.Counter;
 using CoffeeShop.Modules.Counter.Infrastructure.Outbox;
-using CoffeeShop.Modules.Kitchen;
-using CoffeeShop.Modules.Kitchen.Infrastructure.Outbox;
 using CoffeeShop.Messaging.Kafka;
 using CoffeeShop.SharedKernel.Events;
 using CoffeeShop.SharedKernel.Time;
@@ -172,19 +169,11 @@ else
 {
     var connectionString = hostOptions.PostgreSqlConnectionString!;
     Action<CounterOutboxOptions>? configureCounterOutbox = null;
-    Action<BaristaOutboxOptions>? configureBaristaOutbox = null;
-    Action<KitchenOutboxOptions>? configureKitchenOutbox = null;
     if (kafkaEnabled)
     {
         var outboxSection = builder.Configuration.GetSection(
             CounterOutboxOptions.SectionName);
         configureCounterOutbox = outboxSection.Bind;
-        configureBaristaOutbox = builder.Configuration
-            .GetSection(BaristaOutboxOptions.SectionName)
-            .Bind;
-        configureKitchenOutbox = builder.Configuration
-            .GetSection(KitchenOutboxOptions.SectionName)
-            .Bind;
     }
 
     builder.Services.AddCounterModule(
@@ -194,11 +183,11 @@ else
         configureCounterOutbox);
     if (baristaHosting == ModuleHostingMode.Embedded)
     {
-        builder.Services.AddBaristaModule(connectionString, configureBaristaOutbox);
+        builder.Services.AddEmbeddedBarista(connectionString, builder.Configuration, kafkaEnabled);
     }
     if (kitchenHosting == ModuleHostingMode.Embedded)
     {
-        builder.Services.AddKitchenModule(connectionString, configureKitchenOutbox);
+        builder.Services.AddEmbeddedKitchen(connectionString, builder.Configuration, kafkaEnabled);
     }
     builder.Services.AddSingleton(new PostgreSqlReadinessHealthCheck(connectionString));
     healthChecks.AddCheck<PostgreSqlReadinessHealthCheck>(
@@ -308,11 +297,11 @@ if (!app.Environment.IsEnvironment("Testing"))
     await app.Services.MigrateCounterModuleAsync();
     if (baristaHosting == ModuleHostingMode.Embedded)
     {
-        await app.Services.MigrateBaristaModuleAsync();
+        await app.Services.MigrateEmbeddedBaristaAsync();
     }
     if (kitchenHosting == ModuleHostingMode.Embedded)
     {
-        await app.Services.MigrateKitchenModuleAsync();
+        await app.Services.MigrateEmbeddedKitchenAsync();
     }
 }
 

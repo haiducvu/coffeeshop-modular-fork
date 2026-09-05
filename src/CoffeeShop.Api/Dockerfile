@@ -5,6 +5,7 @@ WORKDIR /source
 
 COPY global.json Directory.Build.props Directory.Packages.props ./
 COPY src/CoffeeShop.Api/CoffeeShop.Api.csproj src/CoffeeShop.Api/
+COPY src/CoffeeShop.Hosting.Embedded/CoffeeShop.Hosting.Embedded.csproj src/CoffeeShop.Hosting.Embedded/
 COPY src/CoffeeShop.Contracts/CoffeeShop.Contracts.csproj src/CoffeeShop.Contracts/
 COPY src/CoffeeShop.IntegrationContracts/CoffeeShop.IntegrationContracts.csproj src/CoffeeShop.IntegrationContracts/
 COPY src/CoffeeShop.Messaging.Abstractions/CoffeeShop.Messaging.Abstractions.csproj src/CoffeeShop.Messaging.Abstractions/
@@ -17,6 +18,7 @@ COPY src/CoffeeShop.SharedKernel/CoffeeShop.SharedKernel.csproj src/CoffeeShop.S
 RUN dotnet restore src/CoffeeShop.Api/CoffeeShop.Api.csproj
 
 COPY src/CoffeeShop.Api/ src/CoffeeShop.Api/
+COPY src/CoffeeShop.Hosting.Embedded/ src/CoffeeShop.Hosting.Embedded/
 COPY src/CoffeeShop.Contracts/ src/CoffeeShop.Contracts/
 COPY src/CoffeeShop.IntegrationContracts/ src/CoffeeShop.IntegrationContracts/
 COPY src/CoffeeShop.Messaging.Abstractions/ src/CoffeeShop.Messaging.Abstractions/

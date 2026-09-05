@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using System.Diagnostics;
 using Confluent.Kafka;
 using Confluent.Kafka.Admin;
 using CoffeeShop.IntegrationContracts;
@@ -108,6 +109,13 @@ public sealed class KafkaJsonRoundTripTests(KafkaFixture fixture)
     [Fact]
     public async Task Hosted_consumer_establishes_message_identity_for_handler()
     {
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == MessagingTelemetry.ActivitySourceName,
+            Sample = static (ref ActivityCreationOptions<ActivityContext> _) =>
+                ActivitySamplingResult.AllDataAndRecorded
+        };
+        ActivitySource.AddActivityListener(listener);
         using var testTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         var cancellationToken = testTimeout.Token;
         var runId = Guid.NewGuid().ToString("N");
@@ -133,7 +141,10 @@ public sealed class KafkaJsonRoundTripTests(KafkaFixture fixture)
 
         Assert.Equal(envelope.CorrelationId, observed.CorrelationId);
         Assert.Equal(envelope.MessageId.ToString("D"), observed.CausationId);
-        Assert.Equal(publicationIdentity.TraceParent, observed.TraceParent);
+        Assert.True(ActivityContext.TryParse(publicationIdentity.TraceParent, publicationIdentity.TraceState, out var parent));
+        Assert.True(ActivityContext.TryParse(observed.TraceParent, observed.TraceState, out var consumer));
+        Assert.Equal(parent.TraceId, consumer.TraceId);
+        Assert.NotEqual(parent.SpanId, consumer.SpanId);
         Assert.Equal(publicationIdentity.TraceState, observed.TraceState);
         await host.StopAsync(CancellationToken.None);
     }

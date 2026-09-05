@@ -37,7 +37,8 @@ run_smoke() {
     status=$?
   fi
   trace="$(cat "$trace_file")"
-  rm -f "$trace_file" "$state_file" "$state_file.dlt" "$state_file.effects"
+  rm -f "$trace_file" "$state_file" "$state_file.dlt" "$state_file.effects" \
+    "$state_file.counter.effects" "$state_file.barista.effects" "$state_file.kitchen.effects"
 }
 
 run_smoke

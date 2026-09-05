@@ -27,6 +27,23 @@ namespace CoffeeShop.ArchitectureTests;
 public sealed class ModuleDependencyTests
 {
     [Fact]
+    public void Api_must_not_reference_station_runtime_types()
+    {
+        Assert.DoesNotContain(typeof(Program).Assembly.GetReferencedAssemblies(),
+            assembly => assembly.Name is "CoffeeShop.Modules.Barista" or "CoffeeShop.Modules.Kitchen");
+        ModuleDependencyRules.MustNotDependOn(
+                ArchitectureTestContext.ApiTypes,
+                ArchitectureTestContext.BaristaTypes,
+                "Only the embedded compatibility composition may reference Barista runtime.")
+            .Check(ArchitectureTestContext.Architecture);
+        ModuleDependencyRules.MustNotDependOn(
+                ArchitectureTestContext.ApiTypes,
+                ArchitectureTestContext.KitchenTypes,
+                "Only the embedded compatibility composition may reference Kitchen runtime.")
+            .Check(ArchitectureTestContext.Architecture);
+    }
+
+    [Fact]
     public void Modules_must_not_depend_on_each_other()
     {
         ModuleDependencyRules.MustNotDependOn(

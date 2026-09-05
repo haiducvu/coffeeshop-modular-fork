@@ -7,12 +7,17 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-coffeeshop}
       POSTGRES_USER: ${POSTGRES_USER:-coffeeshop}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-coffeeshop-local}
+      COUNTER_DB_PASSWORD: ${COUNTER_DB_PASSWORD:-counter-local}
+      BARISTA_DB_PASSWORD: ${BARISTA_DB_PASSWORD:-barista-local}
+      KITCHEN_DB_PASSWORD: ${KITCHEN_DB_PASSWORD:-kitchen-local}
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./deploy/postgres/init-service-databases.sh:/docker-entrypoint-initdb.d/10-service-databases.sh:ro
+      - ./deploy/postgres/query-service-database.sh:/opt/coffeeshop/query-service-database.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 2s
       timeout: 3s
       retries: 15
@@ -91,7 +96,7 @@ services:
       dockerfile: src/CoffeeShop.Api/Dockerfile
     environment:
       ASPNETCORE_HTTP_PORTS: 8080
-      ConnectionStrings__CoffeeShop: Host=postgres;Port=5432;Database=${POSTGRES_DB:-coffeeshop};Username=${POSTGRES_USER:-coffeeshop};Password=${POSTGRES_PASSWORD:-coffeeshop-local}
+      ConnectionStrings__CoffeeShop: ${COFFEESHOP_CONNECTION_STRING:-Host=postgres;Port=5432;Database=coffeeshop_counter;Username=coffeeshop_counter;Password=${COUNTER_DB_PASSWORD:-counter-local}}
       ConnectionStrings__Redis: ${REDIS_CONNECTION_STRING:-redis:6379}
       ClientOrigin: http://localhost:${CLIENT_PORT:-5173}
       Authentication__Enabled: ${AUTHENTICATION_ENABLED:-false}
@@ -154,7 +159,7 @@ services:
       context: .
       dockerfile: src/CoffeeShop.Barista.Worker/Dockerfile
     environment:
-      ConnectionStrings__Barista: Host=postgres;Port=5432;Database=${POSTGRES_DB:-coffeeshop};Username=${POSTGRES_USER:-coffeeshop};Password=${POSTGRES_PASSWORD:-coffeeshop-local}
+      ConnectionStrings__Barista: Host=postgres;Port=5432;Database=coffeeshop_barista;Username=coffeeshop_barista;Password=${BARISTA_DB_PASSWORD:-barista-local}
       Messaging__Kafka__Enabled: "true"
       Messaging__Kafka__BootstrapServers: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:19092}
       Messaging__Kafka__SchemaRegistryUrl: ${SCHEMA_REGISTRY_URL:-http://schema-registry:8081}
@@ -184,7 +189,7 @@ services:
       context: .
       dockerfile: src/CoffeeShop.Kitchen.Worker/Dockerfile
     environment:
-      ConnectionStrings__Kitchen: Host=postgres;Port=5432;Database=${POSTGRES_DB:-coffeeshop};Username=${POSTGRES_USER:-coffeeshop};Password=${POSTGRES_PASSWORD:-coffeeshop-local}
+      ConnectionStrings__Kitchen: Host=postgres;Port=5432;Database=coffeeshop_kitchen;Username=coffeeshop_kitchen;Password=${KITCHEN_DB_PASSWORD:-kitchen-local}
       Messaging__Kafka__Enabled: "true"
       Messaging__Kafka__BootstrapServers: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:19092}
       Messaging__Kafka__SchemaRegistryUrl: ${SCHEMA_REGISTRY_URL:-http://schema-registry:8081}

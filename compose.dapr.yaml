@@ -1,0 +1,8 @@
+# Explicit shared-database compatibility topology for Lesson 30's embedded Dapr host.
+services:
+  api:
+    environment:
+      Messaging__Adapter: Dapr
+      Modules__Barista__Hosting: Embedded
+      Modules__Kitchen__Hosting: Embedded
+      ConnectionStrings__CoffeeShop: Host=postgres;Port=5432;Database=${POSTGRES_DB:-coffeeshop};Username=${POSTGRES_USER:-coffeeshop};Password=${POSTGRES_PASSWORD:-coffeeshop-local}

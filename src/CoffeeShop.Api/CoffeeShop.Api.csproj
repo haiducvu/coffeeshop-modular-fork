@@ -4,9 +4,8 @@
     <ProjectReference Include="..\CoffeeShop.Contracts\CoffeeShop.Contracts.csproj" />
     <ProjectReference Include="..\CoffeeShop.Messaging.Dapr\CoffeeShop.Messaging.Dapr.csproj" />
     <ProjectReference Include="..\CoffeeShop.Messaging.Kafka\CoffeeShop.Messaging.Kafka.csproj" />
-    <ProjectReference Include="..\CoffeeShop.Modules.Barista\CoffeeShop.Modules.Barista.csproj" />
+    <ProjectReference Include="..\CoffeeShop.Hosting.Embedded\CoffeeShop.Hosting.Embedded.csproj" />
     <ProjectReference Include="..\CoffeeShop.Modules.Counter\CoffeeShop.Modules.Counter.csproj" />
-    <ProjectReference Include="..\CoffeeShop.Modules.Kitchen\CoffeeShop.Modules.Kitchen.csproj" />
     <ProjectReference Include="..\CoffeeShop.SharedKernel\CoffeeShop.SharedKernel.csproj" />
   </ItemGroup>
 

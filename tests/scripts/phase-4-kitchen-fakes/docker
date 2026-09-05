@@ -12,6 +12,17 @@ case "$*" in
       printf '%s\n' kitchen-worker
     fi
     ;;
+  "compose exec -T postgres sh /opt/coffeeshop/query-service-database.sh "*)
+    if [ "${FAKE_PHASE4_SCHEMAS_MISSING:-false}" = true ]; then
+      case "$*" in *to_regclass*) printf '%s\n' f ;; *) printf '%s\n' t ;; esac
+    elif [ "${FAKE_PHASE4_MESSAGING_TABLES_MISSING:-false}" = true ]; then
+      case "$*" in *inbox_messages*outbox_messages*) printf '%s\n' f ;; *) printf '%s\n' t ;; esac
+    elif [ "${FAKE_PHASE4_FINAL_MIGRATIONS_MISSING:-false}" = true ]; then
+      case "$*" in *RejectedAtUtc*) printf '%s\n' f ;; *) printf '%s\n' t ;; esac
+    else
+      printf '%s\n' t
+    fi
+    ;;
   "compose exec -T postgres psql "*)
     if [ "${FAKE_PHASE4_SCHEMAS_MISSING:-false}" = true ]; then
       printf '%s\n' '|||||'

@@ -18,40 +18,22 @@ fi
 
 timeout_seconds="${SMOKE_TIMEOUT_SECONDS:-180}"
 deadline=$(( $(date +%s) + timeout_seconds ))
-while :; do
-  station_tables="$(docker compose exec -T postgres psql \
-    -U "${POSTGRES_USER:-coffeeshop}" \
-    -d "${POSTGRES_DB:-coffeeshop}" \
-    -At -F '|' \
-    -c "SELECT
-      to_regclass('barista.items'),
-      to_regclass('barista.inbox_messages'),
-      to_regclass('barista.outbox_messages'),
-      to_regclass('kitchen.items'),
-      to_regclass('kitchen.inbox_messages'),
-      to_regclass('kitchen.outbox_messages'),
-      EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'barista'
-          AND table_name = 'outbox_messages'
-          AND column_name = 'RejectedAtUtc'
-      ),
-      EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'kitchen'
-          AND table_name = 'outbox_messages'
-          AND column_name = 'RejectedAtUtc'
-      );" \
-    2>/dev/null | tr -d '\r' || true)"
-  if [ "$station_tables" = 'barista.items|barista.inbox_messages|barista.outbox_messages|kitchen.items|kitchen.inbox_messages|kitchen.outbox_messages|t|t' ]; then
-    break
-  fi
-
-  if [ "$(date +%s)" -ge "$deadline" ]; then
-    echo "Phase 4 Kitchen smoke test failed: station schemas are not ready." >&2
-    exit 1
-  fi
-  sleep 1
+for owner in barista kitchen; do
+  while :; do
+    ready="$(docker compose exec -T postgres sh /opt/coffeeshop/query-service-database.sh "$owner" -At -c "SELECT
+      to_regclass('$owner.items') IS NOT NULL
+      AND to_regclass('$owner.inbox_messages') IS NOT NULL
+      AND to_regclass('$owner.outbox_messages') IS NOT NULL
+      AND EXISTS (SELECT 1 FROM information_schema.columns
+        WHERE table_schema = '$owner' AND table_name = 'outbox_messages'
+          AND column_name = 'RejectedAtUtc');" 2>/dev/null || true)"
+    if [ "$ready" = t ]; then break; fi
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      echo "Phase 4 Kitchen smoke test failed: station schemas are not ready." >&2
+      exit 1
+    fi
+    sleep 1
+  done
 done
 
 export EXPECT_BARISTA_WORKER_TELEMETRY=true

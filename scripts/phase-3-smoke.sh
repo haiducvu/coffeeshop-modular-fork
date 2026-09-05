@@ -70,6 +70,22 @@ contains_text() {
 }
 
 read_effect_counts() {
+  if [ "$messaging_adapter" = Kafka ]; then
+    counter_counts="$(read_owner_counts counter orders)" || return 1
+    barista_counts="$(read_owner_counts barista items)" || return 1
+    kitchen_counts="$(read_owner_counts kitchen items)" || return 1
+    printf '%s\n%s\n%s\n' "$counter_counts" "$barista_counts" "$kitchen_counts" | awk -F '|' '
+      NF != 4 { invalid = 1 }
+      { for (i = 1; i <= NF; i++) if ($i !~ /^[0-9]+$/) invalid = 1 }
+      NR == 1 { inbox = $2; pending = $3; rejected = $4 }
+      NR == 2 { barista = $1; barista_inbox = $2; pending += $3; rejected += $4 }
+      NR == 3 { kitchen = $1; kitchen_inbox = $2; pending += $3; rejected += $4 }
+      END {
+        if (invalid || NR != 3) exit 1
+        printf "%d|%d|%d|%d|%d|%d|%d\n", barista, kitchen, barista_inbox, kitchen_inbox, inbox, pending, rejected
+      }'
+    return
+  fi
   docker compose exec -T postgres psql \
     -U "${POSTGRES_USER:-coffeeshop}" \
     -d "${POSTGRES_DB:-coffeeshop}" \
@@ -93,6 +109,25 @@ read_effect_counts() {
           + (SELECT COUNT(*) FROM barista.outbox_messages WHERE "RejectedAtUtc" IS NOT NULL)
           + (SELECT COUNT(*) FROM kitchen.outbox_messages WHERE "RejectedAtUtc" IS NOT NULL));
     ' | tr -d '\r'
+}
+
+query_owner() {
+  docker compose exec -T postgres sh /opt/coffeeshop/query-service-database.sh "$@"
+}
+
+read_owner_counts() {
+  query_owner "$1" -At -F '|' -c "SELECT
+    (SELECT COUNT(*) FROM $1.$2),
+    (SELECT COUNT(*) FROM $1.inbox_messages),
+    (SELECT COUNT(*) FROM $1.outbox_messages WHERE \"PublishedAtUtc\" IS NULL AND \"RejectedAtUtc\" IS NULL),
+    (SELECT COUNT(*) FROM $1.outbox_messages WHERE \"RejectedAtUtc\" IS NOT NULL);" | tr -d '\r'
+}
+
+read_owner_identity() {
+  printf '%s\n' "SELECT row_to_json(identity) FROM (
+    SELECT \"MessageId\", \"CorrelationId\", \"CausationId\", \"TraceParent\", \"TraceState\"
+    FROM $1.outbox_messages WHERE \"CorrelationId\" = :'correlation_id'
+  ) AS identity;" | query_owner "$1" --set="correlation_id=${correlation_id}" -At
 }
 
 calculate_effect_delta() {
@@ -319,7 +354,22 @@ if [ "$effect_delta" != '1|1|1|1|2|0|0' ]; then
   fail "Inbox, station, pending Outbox, or rejected Outbox deltas were unexpected."
 fi
 
-identity_state="$(printf '%s\n' '
+if [ "$messaging_adapter" = Kafka ]; then
+  root_identity="$(read_owner_identity counter)" || fail "Counter identity could not be queried."
+  barista_identity="$(read_owner_identity barista)" || fail "Barista identity could not be queried."
+  kitchen_identity="$(read_owner_identity kitchen)" || fail "Kitchen identity could not be queried."
+  identity_state="$(printf '%s\n%s\n%s\n' "$root_identity" "$barista_identity" "$kitchen_identity" |
+    jq -ers --arg correlation "$correlation_id" '
+      if length == 3 and .[0].CorrelationId == $correlation
+        and .[0].CausationId == null and (.[0].TraceParent | type) == "string"
+        and (.[0] as $root | all(.[1:][];
+          .CorrelationId == $root.CorrelationId and .CausationId == $root.MessageId
+          and (.TraceParent | type) == "string" and .TraceParent != $root.TraceParent
+          and .TraceParent[3:35] == $root.TraceParent[3:35] and .TraceState == $root.TraceState))
+      then "\($correlation)|t|t|2" else error("Invalid owner identity chain") end
+    ')" || fail "Workflow identity state did not stay continuous across owner databases."
+else
+  identity_state="$(printf '%s\n' '
     WITH root AS (
       SELECT "MessageId", "CorrelationId", "CausationId", "TraceParent", "TraceState"
       FROM counter.outbox_messages
@@ -348,6 +398,7 @@ identity_state="$(printf '%s\n' '
     -d "${POSTGRES_DB:-coffeeshop}" \
     --set="correlation_id='${correlation_id}'" \
     -At -F '|')" || fail "Workflow identity state could not be queried."
+fi
 if [ "$identity_state" != "${correlation_id}|t|t|2" ]; then
   fail "Correlation, causation, or trace identity did not stay continuous."
 fi

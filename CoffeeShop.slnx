@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/CoffeeShop.Api/CoffeeShop.Api.csproj" />
+    <Project Path="src/CoffeeShop.Hosting.Embedded/CoffeeShop.Hosting.Embedded.csproj" />
     <Project Path="src/CoffeeShop.Barista.Worker/CoffeeShop.Barista.Worker.csproj" />
     <Project Path="src/CoffeeShop.Kitchen.Worker/CoffeeShop.Kitchen.Worker.csproj" />
     <Project Path="src/CoffeeShop.Contracts/CoffeeShop.Contracts.csproj" />

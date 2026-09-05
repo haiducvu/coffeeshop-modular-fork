@@ -3,6 +3,31 @@
 set -eu
 
 case "$*" in
+  *"query-service-database.sh "*"--set=correlation_id="*)
+    identity_query="$(cat)"
+    if ! printf '%s' "$identity_query" | grep -Fq 'WHERE "CorrelationId" = '; then exit 1; fi
+    case "$*" in
+      *"query-service-database.sh counter "*)
+        printf '%s\n' '{"MessageId":"root-message","CorrelationId":"27111111-1111-1111-1111-111111111111","CausationId":null,"TraceParent":"00-11111111111111111111111111111111-1111111111111111-01","TraceState":null}' ;;
+      *)
+        printf '%s\n' '{"MessageId":"child-message","CorrelationId":"27111111-1111-1111-1111-111111111111","CausationId":"root-message","TraceParent":"00-11111111111111111111111111111111-2222222222222222-01","TraceState":null}' ;;
+    esac
+    ;;
+  *"query-service-database.sh "*)
+    case "$*" in
+      *"query-service-database.sh counter "*) owner=counter ;;
+      *"query-service-database.sh barista "*) owner=barista ;;
+      *"query-service-database.sh kitchen "*) owner=kitchen ;;
+      *) exit 1 ;;
+    esac
+    count=0
+    if [ "${FAKE_PHASE3_EXISTING_EFFECTS:-false}" = true ]; then count=3; fi
+    if [ -f "${FAKE_PHASE3_STATE:?}.${owner}.effects" ]; then count=$((count + 1)); fi
+    : > "${FAKE_PHASE3_STATE:?}.${owner}.effects"
+    inbox="$count"
+    if [ "$owner" = counter ]; then inbox=$((count * 2)); fi
+    printf '%s|%s|0|0\n' "$count" "$inbox"
+    ;;
   *"exec -T redis redis-cli --raw EXISTS fulfilled-orders:v1"*)
     printf '%s\n' '1'
     ;;
